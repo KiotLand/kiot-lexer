@@ -56,8 +56,21 @@ internal class NFATest {
 	@Test
 	fun testRepeat() {
 		NFA.from("a").oneOrMore().apply {
+			assertEquals(0, reduce())
 			assertFalse(match(""))
 			assertTrue(match("a"))
+			assertTrue(match("aaa"))
+		}
+		NFA.from("aa ").unnecessary().apply {
+			assertEquals(0, reduce())
+			assertTrue(match("aa "))
+			assertTrue(match(""))
+			assertFalse(match("aa aa "))
+		}
+		NFA.from("a").any().apply {
+			assertEquals(0, reduce())
+			assertTrue(match("a"))
+			assertTrue(match(""))
 			assertTrue(match("aaa"))
 		}
 	}

@@ -31,16 +31,10 @@ class NFA private constructor(
 		 *
 		 * Specially, if a cell's [CharClass] is empty, we'll treat it as
 		 * a dummy cell which does not accept any char and only transits
-		 * its epsilon when being stepped in.
+		 * to all its outs when being stepped in.
 		 */
 		private val charClasses: MutableList<CharClass>,
-		private val outs: IntList, // Mentioned above
-		/**
-		 * When stepped in a cell, all the cells connected to it with epsilon edges will
-		 * also be added to [CellList] without condition. In kiot-lexer, we store all
-		 * the cells that is connected to a cell with epsilon edges in this list.
-		 */
-		private val epsilons: MutableList<IntList>,
+		private val outs: MutableList<IntList>, // Mentioned above
 		/**
 		 * Whether a cell is a final cell.
 		 */
@@ -50,109 +44,160 @@ class NFA private constructor(
 		fun chain(vararg elements: NFA): NFA {
 			if (elements.isEmpty()) throw IllegalArgumentException()
 			if (elements.size == 1) return elements[0].copy()
-			val ret = NFA()
-			for (i in 0 until elements.lastIndex) {
-				ret += elements[i]
-				ret.link(ret.endCell, ret.size)
+			return NFA().apply {
+				for (i in 0 until elements.lastIndex) {
+					this += elements[i]
+					link(endCell, elements[i + 1].beginCell + size)
+				}
+				this += elements.last()
+				reduce()
 			}
-			ret += elements.last()
-			ret.reduce()
-			return ret
 		}
 
 		fun branch(vararg branches: NFA): NFA {
 			if (branches.isEmpty()) throw IllegalArgumentException()
 			if (branches.size == 1) return branches[0].copy()
-			val ret = NFA()
 			/*
                         /--> (NFA1) --\
-			(Start) --<      ......     >--> (End) --> (Final)
+			(Begin) --<      ......     >--> (End) --> (Final)
 			            \--> (NFAn) --/
 			 */
-			ret.appendCell(CharClass.empty)
-			val beginEpsilons = ret.epsilons[0]
-			val endCell = ret.appendDummyCell(intListOf(2))
-			ret.appendFinalCell()
-			for (branch in branches) {
-				beginEpsilons += ret.size
-				ret += branch
-				ret.link(ret.endCell, endCell)
+			return NFA().apply {
+				appendCell(CharClass.empty)
+				val beginOuts = outs[0]
+				val endCell = appendDummyCell(intListOf(2))
+				appendFinalCell()
+				for (branch in branches) {
+					beginOuts += branch.beginCell + size
+					this += branch
+					link(endCell, endCell)
+				}
+				this.endCell = endCell
+				reduce()
 			}
-			ret.endCell = endCell
-			ret.reduce()
-			return ret
 		}
 
 		fun from(vararg chars: Char): NFA = from(CharClass.from(*chars))
 		fun fromSorted(vararg chars: Char): NFA = from(CharClass.fromSorted(*chars))
 		fun fromSorted(chars: String): NFA = from(CharClass.fromSorted(chars))
 		fun from(charClass: CharClass): NFA = NFA().apply {
-			appendCell(charClass, 1, IntList(), false)
+			appendCell(charClass, intListOf(1), false)
 			appendFinalCell()
 		}
 
 		fun from(chars: CharSequence) = from(chars.iterator())
 		fun from(iterator: Iterator<Char>): NFA {
 			if (!iterator.hasNext()) throw IllegalArgumentException()
-			val ret = NFA()
-			ret.appendCell(CharClass.from(iterator.next()))
-			var cur = 0
-			while (iterator.hasNext()) {
-				ret.appendCell(CharClass.from(iterator.next()))
-				ret.setOut(cur, ++cur)
+			return NFA().apply {
+				appendCell(CharClass.from(iterator.next()))
+				var cur = 0
+				while (iterator.hasNext()) {
+					appendCell(CharClass.from(iterator.next()))
+					outs[cur].add(cur + 1)
+					++cur
+				}
+				outs[cur].add(appendFinalCell())
+				endCell = cur
 			}
-			ret.setOut(cur, ret.appendFinalCell())
-			ret.endCell = cur
-			return ret
 		}
 	}
 
+	/**
+	 * Create a NFA that accepts (this)+ .
+	 */
 	fun oneOrMore(): NFA {
 		/*
            |---------------------|
            √                     |
-		(Start) --> (End) --> (Dummy1) --> (Dummy2) --> (Final)
+		(Begin) --> (End) --> (Dummy1) --> (Dummy2) --> (Final)
 		 */
-		val ret = NFA(this)
-		val dummy2 = ret.appendDummyCell(intListOf(ret.outs[ret.endCell]))
-		ret.outs[ret.endCell] = ret.appendDummyCell(intListOf(ret.beginCell, dummy2)) // dummy1
-		ret.endCell = dummy2
-		return ret
+		return NFA(this).apply {
+			val dummy2 = appendDummyCell(outs[endCell])
+			outs[endCell] = IntList()
+			link(endCell, appendDummyCell(intListOf(beginCell, dummy2))) // dummy1
+			endCell = dummy2
+		}
+	}
+
+	/**
+	 * Create a NFA that accepts (this)? .
+	 */
+	fun unnecessary(): NFA {
+		/*
+		   |-----------------------------------|
+		   |                                   √
+		(Dummy1) --> (Begin) --> (End) --> (Dummy2) --> (Final)
+		 */
+		return NFA(this).apply {
+			val dummy2 = appendDummyCell(outs[endCell])
+			outs[endCell] = IntList()
+			link(endCell, dummy2)
+			beginCell = appendDummyCell(intListOf(beginCell, dummy2)) // dummy1
+			endCell = dummy2
+		}
+	}
+
+	/**
+	 * Create a automata that accepts (this)* .
+	 */
+	fun any(): NFA {
+		/*
+		   |-----------------------------------|
+		   |                                   √
+		(Dummy1) --> (Begin) --> (End)      (Dummy2) --> (Final)
+		   ^                       |
+		   |-----------------------|
+		 */
+		return NFA(this).apply {
+			val dummy2 = appendDummyCell(outs[endCell])
+			outs[endCell] = IntList()
+			val dummy1 = appendDummyCell(intListOf(beginCell, dummy2))
+			link(endCell, dummy1)
+			beginCell = dummy1
+			endCell = dummy2
+		}
 	}
 
 	fun link(from: Int, to: Int) {
-		if (isDummy(from)) epsilons[from].add(to)
-		else outs[from] = to
+		outs[from].clear()
+		outs[from].add(to)
 	}
 
-	constructor(vararg all: NFA) : this(mutableListOf(), IntList(), mutableListOf(), BooleanList()) {
+	constructor(vararg all: NFA) : this(mutableListOf(), mutableListOf(), BooleanList()) {
 		for (one in all) this += one
 	}
 
 	override val size: Int
 		get() = charClasses.size
-	val beginCell: Int
-		get() = 0
+	var beginCell = 0
 	var endCell = 0
+
+	val indices: IntRange
+		inline get() = 0 until size
 
 	override fun copy(): NFA =
 			NFA(
 					charClasses.toMutableList(),
-					outs.copy(),
-					epsilons.mapTo(mutableListOf()) { it.copy() },
+					outs.mapTo(mutableListOf()) { it.copy() },
 					finalFlags.copy()
 			).also { it.endCell = endCell }
 
 	private fun putInto(cellIndex: Int, list: CellList): Boolean {
-		if (!isDummy(cellIndex)) list += cellIndex
+		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
+			list += cellIndex
+			return finalFlags[cellIndex]
+		}
 		var ret = finalFlags[cellIndex]
-		for (i in epsilons[cellIndex]) ret = ret || putInto(i, list)
+		for (i in outs[cellIndex]) ret = ret || putInto(i, list)
 		return ret
 	}
 
 	private fun transit(cellIndex: Int, char: Char, list: CellList): Boolean {
+		// When the cell is dummy, its CharClass should be empty and this following check will be satisfied.
 		if (char !in charClasses[cellIndex]) return false
-		return putInto(outs[cellIndex], list)
+		var ret = finalFlags[cellIndex]
+		for (i in outs[cellIndex]) ret = ret || putInto(i, list)
+		return ret
 	}
 
 	fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
@@ -161,52 +206,43 @@ class NFA private constructor(
 	operator fun plusAssign(other: NFA) {
 		val offset = size
 		charClasses += other.charClasses
-		for (i in 0 until other.size) {
-			outs += other.outs[i] + offset
-			epsilons += other.epsilons[i].mapTo(IntList()) { it + offset }
-		}
+		for (i in 0 until other.size)
+			outs += other.outs[i].mapTo(IntList()) { it + offset }
 		finalFlags += other.finalFlags
+		// note that we update end cell only.
 		endCell = offset + other.endCell
 	}
 
 	fun isDummy(cellIndex: Int) = charClasses[cellIndex].isEmpty()
 	fun charClassOf(cellIndex: Int) = charClasses[cellIndex]
 	fun outOf(cellIndex: Int) = outs[cellIndex]
-	fun epsilonOf(cellIndex: Int) = epsilons[cellIndex]
 	fun isFinal(cellIndex: Int) = finalFlags[cellIndex]
 
 	fun setCharClass(cellIndex: Int, charClass: CharClass) {
 		this.charClasses[cellIndex] = charClass
 	}
 
-	fun setOut(cellIndex: Int, out: Int) {
-		this.outs[cellIndex] = out
-	}
-
-	fun setEpsilon(cellIndex: Int, epsilon: IntList) {
-		this.epsilons[cellIndex] = epsilon
+	fun setOuts(cellIndex: Int, outs: IntList) {
+		this.outs[cellIndex] = outs
 	}
 
 	fun setFinal(cellIndex: Int, final: Boolean) {
 		this.finalFlags[cellIndex] = final
 	}
 
-	fun appendDummyCell(epsilon: IntList, final: Boolean = false): Int = appendCell(CharClass.empty, 0, epsilon, final)
-
-	fun appendCell(charClass: CharClass, out: Int = 0, epsilon: IntList = IntList(), final: Boolean = false): Int {
+	fun appendCell(charClass: CharClass, outs: IntList = IntList(), final: Boolean = false): Int {
 		this.charClasses += charClass
-		this.outs += out
-		this.epsilons += epsilon
+		this.outs += outs
 		this.finalFlags += final
 		return size - 1
 	}
 
+	fun appendDummyCell(outs: IntList, final: Boolean = false): Int = appendCell(CharClass.empty, outs, final)
 	fun appendFinalCell() = appendDummyCell(IntList(), true)
 
 	fun clear() {
 		charClasses.clear()
 		outs.clear()
-		epsilons.clear()
 		finalFlags.clear()
 	}
 
@@ -216,15 +252,11 @@ class NFA private constructor(
 	 */
 	fun reduce(): Int {
 		val visited = BitSet(size)
-		val stack = intListOf(0)
-		visited.set(0)
+		val stack = intListOf(beginCell)
+		visited.set(beginCell)
 		while (stack.isNotEmpty()) {
 			val x = stack.removeAt(stack.lastIndex)
-			if (!visited[outs[x]]) {
-				visited.set(outs[x])
-				if (!isDummy(x)) stack += outs[x]
-			}
-			for (y in epsilons[x]) {
+			for (y in outs[x]) {
 				if (visited[y]) continue
 				visited.set(y)
 				stack += y
@@ -236,8 +268,7 @@ class NFA private constructor(
 			val from = fromIndex - pre
 			val to = toIndex - pre
 			charClasses.subList(from, to).clear()
-			outs.removeRange(from, to)
-			epsilons.subList(from, to).clear()
+			outs.subList(from, to).clear()
 			finalFlags.removeRange(from, to)
 			map[fromIndex] -= toIndex - fromIndex
 			pre += toIndex - fromIndex
@@ -261,10 +292,8 @@ class NFA private constructor(
 		}
 		for (j in 1 until map.size) map[j] += map[j - 1]
 		for (j in map.indices) map[j] += j
-		for (j in 0 until size) {
-			outs[j] = map[outs[j]]
-			for (k in epsilons[j].indices) epsilons[j][k] = map[epsilons[j][k]]
-		}
+		for (j in indices)
+			for (k in outs[j].indices) outs[j][k] = map[outs[j][k]]
 		return ret
 	}
 

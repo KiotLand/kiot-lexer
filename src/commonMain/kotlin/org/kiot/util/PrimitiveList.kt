@@ -28,7 +28,7 @@ abstract class PrimitiveList<T> : MutableList<T> {
 		if (cursor < 0 || cursor > size) throw IndexOutOfBoundsException()
 	}
 
-	protected inline fun ensureRange(fromIndex: Int, toIndex: Int) {
+	private inline fun ensureRange(fromIndex: Int, toIndex: Int) {
 		ensureIndex(fromIndex)
 		ensureCursor(toIndex)
 		if (fromIndex > toIndex) error("fromIndex > toIndex")
