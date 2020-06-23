@@ -19,7 +19,7 @@ import org.kiot.util.intListOf
  *
  * In the NFA above, cell "B" is the end cell instead of (Final).
  *
- * @see [Automata]
+ * @see Automata
  */
 class NFA private constructor(
 		/**
@@ -180,7 +180,10 @@ class NFA private constructor(
 					charClasses.toMutableList(),
 					outs.mapTo(mutableListOf()) { it.copy() },
 					finalFlags.copy()
-			).also { it.endCell = endCell }
+			).also {
+				it.beginCell = beginCell
+				it.endCell = endCell
+			}
 
 	private fun putInto(cellIndex: Int, list: CellList): Boolean {
 		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
