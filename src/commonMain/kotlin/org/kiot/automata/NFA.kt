@@ -22,23 +22,23 @@ import org.kiot.util.intListOf
  * @see Automata
  */
 class NFA private constructor(
-		/**
-		 * In kiot-lexer, transitions are stored in cells themselves. Each
-		 * cell has a [CharClass]. Let A be a cell, and its [CharClass]
-		 * be C. If we are now at cell A, and we received a new char
-		 * that is contained in C, so we'll extend the [CellList] with
-		 * A's [outs], otherwise we'll do nothing.
-		 *
-		 * Specially, if a cell's [CharClass] is empty, we'll treat it as
-		 * a dummy cell which does not accept any char and only transits
-		 * to all its outs when being stepped in.
-		 */
-		private val charClasses: MutableList<CharClass>,
-		private val outs: MutableList<IntList>, // Mentioned above
-		/**
-		 * Whether a cell is a final cell.
-		 */
-		private val finalFlags: BooleanList
+	/**
+	 * In kiot-lexer, transitions are stored in cells themselves. Each
+	 * cell has a [CharClass]. Let A be a cell, and its [CharClass]
+	 * be C. If we are now at cell A, and we received a new char
+	 * that is contained in C, so we'll extend the [CellList] with
+	 * A's [outs], otherwise we'll do nothing.
+	 *
+	 * Specially, if a cell's [CharClass] is empty, we'll treat it as
+	 * a dummy cell which does not accept any char and only transits
+	 * to all its outs when being stepped in.
+	 */
+	private val charClasses: MutableList<CharClass>,
+	private val outs: MutableList<IntList>, // Mentioned above
+	/**
+	 * Whether a cell is a final cell.
+	 */
+	private val finalFlags: BooleanList
 ) : Automata() {
 	companion object {
 		fun chain(vararg elements: NFA): NFA {
@@ -103,42 +103,38 @@ class NFA private constructor(
 	}
 
 	/**
-	 * Create a NFA that accepts (this)+ .
+	 * Make this NFA a new NFA that accepts (this)+ .
 	 */
-	fun oneOrMore(): NFA {
+	fun makeOneOrMore() {
 		/*
            |---------------------|
            √                     |
 		(Begin) --> (End) --> (Dummy1) --> (Dummy2) --> (Final)
 		 */
-		return NFA(this).apply {
-			val dummy2 = appendDummyCell(outs[endCell])
-			outs[endCell] = IntList()
-			link(endCell, appendDummyCell(intListOf(beginCell, dummy2))) // dummy1
-			endCell = dummy2
-		}
+		val dummy2 = appendDummyCell(outs[endCell])
+		outs[endCell] = IntList()
+		link(endCell, appendDummyCell(intListOf(beginCell, dummy2))) // dummy1
+		endCell = dummy2
 	}
 
 	/**
-	 * Create a NFA that accepts (this)? .
+	 * Make this NFA a new NFA that accepts (this)? .
 	 */
-	fun unnecessary(): NFA {
+	fun makeUnnecessary() {
 		/*
 		   |-----------------------------------|
 		   |                                   √
 		(Dummy1) --> (Begin) --> (End) --> (Dummy2) --> (Final)
 		 */
-		return NFA(this).apply {
 			val dummy2 = appendDummyCell(outs[endCell])
 			outs[endCell] = IntList()
 			link(endCell, dummy2)
 			beginCell = appendDummyCell(intListOf(beginCell, dummy2)) // dummy1
 			endCell = dummy2
-		}
 	}
 
 	/**
-	 * Create a automata that accepts (this)* .
+	 * Make this NFA a new NFA that accepts (this)* .
 	 */
 	fun any(): NFA {
 		/*
@@ -148,14 +144,12 @@ class NFA private constructor(
 		   ^                       |
 		   |-----------------------|
 		 */
-		return NFA(this).apply {
 			val dummy2 = appendDummyCell(outs[endCell])
 			outs[endCell] = IntList()
 			val dummy1 = appendDummyCell(intListOf(beginCell, dummy2))
 			link(endCell, dummy1)
 			beginCell = dummy1
 			endCell = dummy2
-		}
 	}
 
 	fun link(from: Int, to: Int) {
@@ -176,14 +170,14 @@ class NFA private constructor(
 		inline get() = 0 until size
 
 	override fun copy(): NFA =
-			NFA(
-					charClasses.toMutableList(),
-					outs.mapTo(mutableListOf()) { it.copy() },
-					finalFlags.copy()
-			).also {
-				it.beginCell = beginCell
-				it.endCell = endCell
-			}
+		NFA(
+			charClasses.toMutableList(),
+			outs.mapTo(mutableListOf()) { it.copy() },
+			finalFlags.copy()
+		).also {
+			it.beginCell = beginCell
+			it.endCell = endCell
+		}
 
 	private fun putInto(cellIndex: Int, list: CellList): Boolean {
 		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
@@ -204,7 +198,8 @@ class NFA private constructor(
 	}
 
 	fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
-	fun match(chars: Iterator<Char>, exact: Boolean = true) = CellList().apply { putInto(beginCell, this) }.match(chars, exact)
+	fun match(chars: Iterator<Char>, exact: Boolean = true) =
+		CellList().apply { putInto(beginCell, this) }.match(chars, exact)
 
 	operator fun plusAssign(other: NFA) {
 		val offset = size
@@ -304,12 +299,12 @@ class NFA private constructor(
 	 * A list of NFA cells.
 	 */
 	private inner class CellList(
-			val bitset: BitSet = BitSet(size),
-			val list: IntList = IntList(),
-			/**
-			 * How many final cells are there in this instance?
-			 */
-			var finalCount: Int = 0
+		val bitset: BitSet = BitSet(size),
+		val list: IntList = IntList(),
+		/**
+		 * How many final cells are there in this instance?
+		 */
+		var finalCount: Int = 0
 	) : MutableSet<Int> {
 		override val size: Int
 			get() = list.size
