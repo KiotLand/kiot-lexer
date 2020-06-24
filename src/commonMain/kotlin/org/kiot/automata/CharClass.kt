@@ -15,7 +15,8 @@ private fun max(a: Char, b: Char) = if (a >= b) a else b
  * and using [plainTo] instead of ".." can construct a [PlainCharRange] with two
  * operands.
  *
- * @see [CharClass]
+ * @see CharClass
+ * @see plainTo
  */
 data class PlainCharRange(val start: Char, val end: Char) {
 	companion object {
@@ -54,7 +55,7 @@ fun CharRange.plain() = PlainCharRange(start, endInclusive)
  * A combination of several [PlainCharRange], representing a general char set
  * while [PlainCharRange] can only represent a continuous char range.
  *
- * @see [PlainCharRange]
+ * @see PlainCharRange
  */
 class CharClass(vararg val ranges: PlainCharRange) {
 	companion object {
@@ -67,7 +68,7 @@ class CharClass(vararg val ranges: PlainCharRange) {
 		/**
 		 * Obtain [CharClass] from several specified chars.
 		 *
-		 * @see [fromSorted]
+		 * @see fromSorted
 		 */
 		fun from(vararg chars: Char) =
 				fromSorted(*chars.also { it.sort() })
@@ -81,7 +82,7 @@ class CharClass(vararg val ranges: PlainCharRange) {
 		 * Obtain [CharRange] from several chars, requiring the given
 		 * char sequence is sorted.
 		 *
-		 * @see [from]
+		 * @see from
 		 */
 		fun fromSorted(vararg chars: Char): CharClass {
 			if (chars.isEmpty()) return empty
