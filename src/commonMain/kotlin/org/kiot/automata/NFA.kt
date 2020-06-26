@@ -1,23 +1,15 @@
 package org.kiot.automata
 
 import org.kiot.util.BitSet
-import org.kiot.util.BooleanList
 import org.kiot.util.IntList
-import org.kiot.util.intListOf
+import org.kiot.util.emptyIntList
 
 /**
  * NFA stands for "Nondeterministic finite automata".
  *
  * In kiot-lexer, it's implemented through representing states as integers
- * and store their data in several arrays. We store the begin cell at index 0.
- *
- * For convenience, we store a end cell which does not exist in general NFA. It
- * should have only one out. Note that the end cell does not have to be a final cell.
- * For example, we have a NFA that matches "AAB", like:
- *
- * A -> A -> B -> (Final)
- *
- * In the NFA above, cell "B" is the end cell instead of (Final).
+ * and store their data in several arrays. The index of begin cell is stored
+ * in NFA.
  *
  * @see Automata
  */
@@ -34,122 +26,16 @@ class NFA private constructor(
 	 * to all its outs when being stepped in.
 	 */
 	private val charClasses: MutableList<CharClass>,
-	private val outs: MutableList<IntList>, // Mentioned above
-	/**
-	 * Whether a cell is a final cell.
-	 */
-	private val finalFlags: BooleanList
+	private val outs: MutableList<IntList> // Mentioned above
 ) : Automata() {
 	companion object {
-		fun chain(vararg elements: NFA): NFA {
-			if (elements.isEmpty()) throw IllegalArgumentException()
-			if (elements.size == 1) return elements[0].copy()
-			return NFA().apply {
-				for (i in 0 until elements.lastIndex) {
-					this += elements[i]
-					link(endCell, elements[i + 1].beginCell + size)
-				}
-				this += elements.last()
-				reduce()
-			}
-		}
+		fun from(vararg chars: Char) = NFABuilder.from(*chars).build()
+		fun fromSorted(vararg chars: Char) = NFABuilder.fromSorted(*chars).build()
+		fun fromSorted(chars: String) = NFABuilder.fromSorted(chars).build()
+		fun from(charClass: CharClass) = NFABuilder.from(charClass).build()
 
-		fun branch(vararg branches: NFA): NFA {
-			if (branches.isEmpty()) throw IllegalArgumentException()
-			if (branches.size == 1) return branches[0].copy()
-			/*
-                        /--> (NFA1) --\
-			(Begin) --<      ......     >--> (End) --> (Final)
-			            \--> (NFAn) --/
-			 */
-			return NFA().apply {
-				appendCell(CharClass.empty)
-				val beginOuts = outs[0]
-				val endCell = appendDummyCell(intListOf(2))
-				appendFinalCell()
-				for (branch in branches) {
-					beginOuts += branch.beginCell + size
-					this += branch
-					link(endCell, endCell)
-				}
-				this.endCell = endCell
-				reduce()
-			}
-		}
-
-		fun from(vararg chars: Char): NFA = from(CharClass.from(*chars))
-		fun fromSorted(vararg chars: Char): NFA = from(CharClass.fromSorted(*chars))
-		fun fromSorted(chars: String): NFA = from(CharClass.fromSorted(chars))
-		fun from(charClass: CharClass): NFA = NFA().apply {
-			appendCell(charClass, intListOf(1), false)
-			appendFinalCell()
-		}
-
-		fun from(chars: CharSequence) = from(chars.iterator())
-		fun from(iterator: Iterator<Char>): NFA {
-			if (!iterator.hasNext()) throw IllegalArgumentException()
-			return NFA().apply {
-				appendCell(CharClass.from(iterator.next()))
-				var cur = 0
-				while (iterator.hasNext()) {
-					appendCell(CharClass.from(iterator.next()))
-					outs[cur].add(cur + 1)
-					++cur
-				}
-				outs[cur].add(appendFinalCell())
-				endCell = cur
-			}
-		}
-	}
-
-	/**
-	 * Make this NFA a new NFA that accepts (this)+ .
-	 */
-	fun makeOneOrMore() {
-		/*
-           |---------------------|
-           √                     |
-		(Begin) --> (End) --> (Dummy1) --> (Dummy2) --> (Final)
-		 */
-		val dummy2 = appendDummyCell(outs[endCell])
-		outs[endCell] = IntList()
-		link(endCell, appendDummyCell(intListOf(beginCell, dummy2))) // dummy1
-		endCell = dummy2
-	}
-
-	/**
-	 * Make this NFA a new NFA that accepts (this)? .
-	 */
-	fun makeUnnecessary() {
-		/*
-		   |-----------------------------------|
-		   |                                   √
-		(Dummy1) --> (Begin) --> (End) --> (Dummy2) --> (Final)
-		 */
-			val dummy2 = appendDummyCell(outs[endCell])
-			outs[endCell] = IntList()
-			link(endCell, dummy2)
-			beginCell = appendDummyCell(intListOf(beginCell, dummy2)) // dummy1
-			endCell = dummy2
-	}
-
-	/**
-	 * Make this NFA a new NFA that accepts (this)* .
-	 */
-	fun any(): NFA {
-		/*
-		   |-----------------------------------|
-		   |                                   √
-		(Dummy1) --> (Begin) --> (End)      (Dummy2) --> (Final)
-		   ^                       |
-		   |-----------------------|
-		 */
-			val dummy2 = appendDummyCell(outs[endCell])
-			outs[endCell] = IntList()
-			val dummy1 = appendDummyCell(intListOf(beginCell, dummy2))
-			link(endCell, dummy1)
-			beginCell = dummy1
-			endCell = dummy2
+		fun from(chars: CharSequence) = NFABuilder.from(chars).build()
+		fun from(chars: Iterator<Char>) = NFABuilder.from(chars).build()
 	}
 
 	fun link(from: Int, to: Int) {
@@ -157,14 +43,15 @@ class NFA private constructor(
 		outs[from].add(to)
 	}
 
-	constructor(vararg all: NFA) : this(mutableListOf(), mutableListOf(), BooleanList()) {
+	constructor(vararg all: NFA) : this(mutableListOf(), mutableListOf()) {
 		for (one in all) this += one
 	}
 
 	override val size: Int
 		get() = charClasses.size
-	var beginCell = 0
-	var endCell = 0
+	override var beginCell = finalCell
+	val finalCell: Int
+		get() = -1
 
 	val indices: IntRange
 		inline get() = 0 until size
@@ -172,27 +59,24 @@ class NFA private constructor(
 	override fun copy(): NFA =
 		NFA(
 			charClasses.toMutableList(),
-			outs.mapTo(mutableListOf()) { it.copy() },
-			finalFlags.copy()
-		).also {
-			it.beginCell = beginCell
-			it.endCell = endCell
-		}
+			outs.mapTo(mutableListOf()) { it.copy() }
+		).also { it.beginCell = beginCell }
 
 	private fun putInto(cellIndex: Int, list: CellList): Boolean {
 		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
 			list += cellIndex
-			return finalFlags[cellIndex]
+			return isFinal(cellIndex)
 		}
-		var ret = finalFlags[cellIndex]
+		var ret = isFinal(cellIndex)
 		for (i in outs[cellIndex]) ret = ret || putInto(i, list)
 		return ret
 	}
 
 	private fun transit(cellIndex: Int, char: Char, list: CellList): Boolean {
+		if (isFinal(cellIndex)) return false
 		// When the cell is dummy, its CharClass should be empty and this following check will be satisfied.
 		if (char !in charClasses[cellIndex]) return false
-		var ret = finalFlags[cellIndex]
+		var ret = isFinal(cellIndex)
 		for (i in outs[cellIndex]) ret = ret || putInto(i, list)
 		return ret
 	}
@@ -205,16 +89,13 @@ class NFA private constructor(
 		val offset = size
 		charClasses += other.charClasses
 		for (i in 0 until other.size)
-			outs += other.outs[i].mapTo(IntList()) { it + offset }
-		finalFlags += other.finalFlags
-		// note that we update end cell only.
-		endCell = offset + other.endCell
+			outs += other.outs[i].mapTo(emptyIntList()) { if (isFinal(it)) it else (it + offset) }
 	}
 
 	fun isDummy(cellIndex: Int) = charClasses[cellIndex].isEmpty()
 	fun charClassOf(cellIndex: Int) = charClasses[cellIndex]
-	fun outOf(cellIndex: Int) = outs[cellIndex]
-	fun isFinal(cellIndex: Int) = finalFlags[cellIndex]
+	fun outsOf(cellIndex: Int) = outs[cellIndex]
+	override fun isFinal(cellIndex: Int) = cellIndex == -1
 
 	fun setCharClass(cellIndex: Int, charClass: CharClass) {
 		this.charClasses[cellIndex] = charClass
@@ -224,75 +105,22 @@ class NFA private constructor(
 		this.outs[cellIndex] = outs
 	}
 
-	fun setFinal(cellIndex: Int, final: Boolean) {
-		this.finalFlags[cellIndex] = final
-	}
-
-	fun appendCell(charClass: CharClass, outs: IntList = IntList(), final: Boolean = false): Int {
+	fun appendCell(charClass: CharClass, outs: IntList = emptyIntList()): Int {
 		this.charClasses += charClass
 		this.outs += outs
-		this.finalFlags += final
 		return size - 1
 	}
 
-	fun appendDummyCell(outs: IntList, final: Boolean = false): Int = appendCell(CharClass.empty, outs, final)
-	fun appendFinalCell() = appendDummyCell(IntList(), true)
+	fun appendDummyCell(outs: IntList = emptyIntList()): Int = appendCell(CharClass.empty, outs)
 
 	fun clear() {
 		charClasses.clear()
 		outs.clear()
-		finalFlags.clear()
 	}
 
-	/**
-	 * Remove unused cells (cells that cannot be reached from the begin cell) and
-	 * return the amount of them.
-	 */
-	fun reduce(): Int {
-		val visited = BitSet(size)
-		val stack = intListOf(beginCell)
-		visited.set(beginCell)
-		while (stack.isNotEmpty()) {
-			val x = stack.removeAt(stack.lastIndex)
-			for (y in outs[x]) {
-				if (visited[y]) continue
-				visited.set(y)
-				stack += y
-			}
-		}
-		val map = IntArray(size)
-		var pre = 0
-		fun removeRange(fromIndex: Int, toIndex: Int) {
-			val from = fromIndex - pre
-			val to = toIndex - pre
-			charClasses.subList(from, to).clear()
-			outs.subList(from, to).clear()
-			finalFlags.removeRange(from, to)
-			map[fromIndex] -= toIndex - fromIndex
-			pre += toIndex - fromIndex
-		}
-
-		var lst = -1
-		var ret = 0
-		val originalSize = size
-		for (i in 0 until size) {
-			if (!visited[i]) {
-				if (lst == -1) lst = i
-			} else if (lst != -1) {
-				ret += i - lst
-				removeRange(lst, i)
-				lst = -1
-			}
-		}
-		if (lst != -1) {
-			ret += originalSize - lst
-			removeRange(lst, originalSize)
-		}
-		for (j in 1 until map.size) map[j] += map[j - 1]
-		for (j in map.indices) map[j] += j
-		for (j in indices)
-			for (k in outs[j].indices) outs[j][k] = map[outs[j][k]]
-		return ret
+	internal fun clearRange(from: Int, to: Int) {
+		charClasses.subList(from, to).clear()
+		outs.subList(from, to).clear()
 	}
 
 	/**
@@ -300,20 +128,23 @@ class NFA private constructor(
 	 */
 	private inner class CellList(
 		val bitset: BitSet = BitSet(size),
-		val list: IntList = IntList(),
-		/**
-		 * How many final cells are there in this instance?
-		 */
-		var finalCount: Int = 0
+		val list: IntList = emptyIntList(),
+		var hasFinal: Boolean = false
 	) : MutableSet<Int> {
 		override val size: Int
 			get() = list.size
 
 		override fun add(element: Int): Boolean {
+			if (isFinal(element))
+				return if (hasFinal) false
+				else {
+					hasFinal = true
+					list.add(element)
+					true
+				}
 			if (bitset[element]) return false
 			bitset.set(element)
 			list.add(element)
-			if (isFinal(element)) ++finalCount
 			return true
 		}
 
@@ -324,10 +155,15 @@ class NFA private constructor(
 		}
 
 		override fun remove(element: Int): Boolean {
+			if (isFinal(element))
+				return if (hasFinal) {
+					hasFinal = false
+					list.remove(element)
+					true
+				} else false
 			if (!bitset[element]) return false
 			bitset.clear(element)
 			list.remove(element)
-			if (isFinal(element)) --finalCount
 			return true
 		}
 
@@ -341,10 +177,9 @@ class NFA private constructor(
 			val ret = list.retainAll(elements)
 			if (ret) {
 				bitset.clear()
-				finalCount = 0
 				for (element in list) {
-					bitset.set(element)
-					if (isFinal(element)) ++finalCount
+					if (isFinal(element)) hasFinal = true
+					else bitset.set(element)
 				}
 			}
 			return ret
@@ -361,24 +196,24 @@ class NFA private constructor(
 		override fun clear() {
 			bitset.clear()
 			list.clear()
-			finalCount = 0
+			hasFinal = false
 		}
 
-		fun copy(): CellList = CellList(bitset.copy(), list.copy(), finalCount)
+		fun copy(): CellList = CellList(bitset.copy(), list.copy(), hasFinal)
 
 		fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
 		fun match(chars: kotlin.collections.Iterator<Char>, exact: Boolean = true): Boolean {
-			if (!chars.hasNext()) return finalCount != 0
-			if ((!exact) && finalCount != 0) return true
+			if (!chars.hasNext()) return hasFinal
+			if ((!exact) && hasFinal) return true
 			var listA = copy()
 			var listB = CellList()
-			var hasFinal: Boolean
+			var localHasFinal: Boolean
 			do {
 				val char = chars.next()
-				hasFinal = false
+				localHasFinal = false
 				for (cell in listA) {
-					if ((!hasFinal) && transit(cell, char, listB)) {
-						hasFinal = true
+					if ((!localHasFinal) && transit(cell, char, listB)) {
+						localHasFinal = true
 						if (!exact) return true
 					}
 				}
@@ -387,8 +222,13 @@ class NFA private constructor(
 				listB = tmp
 				listB.clear()
 			} while (chars.hasNext())
-			return hasFinal
+			return localHasFinal
 		}
+
+		override fun hashCode(): Int = bitset.hashCode()
+		override fun equals(other: Any?): Boolean =
+			if (other is CellList) bitset == other.bitset
+			else false
 
 		inner class Iterator : MutableIterator<Int> {
 			var index = 0

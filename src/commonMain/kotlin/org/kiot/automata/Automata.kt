@@ -13,4 +13,8 @@ abstract class Automata {
 	abstract val size: Int
 
 	abstract fun copy(): Automata
+
+	abstract val beginCell: Int
+
+	abstract fun isFinal(cellIndex: Int): Boolean
 }

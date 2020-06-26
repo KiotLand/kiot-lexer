@@ -46,10 +46,10 @@ abstract class PrimitiveList<T> : MutableList<T> {
 	}
 
 	override fun contains(element: T): Boolean =
-			indexOf(element) != -1
+		indexOf(element) != -1
 
 	override fun containsAll(elements: Collection<T>): Boolean =
-			elements.all { contains(it) }
+		elements.all { contains(it) }
 
 	override fun isEmpty(): Boolean = size == 0
 
@@ -101,7 +101,7 @@ abstract class PrimitiveList<T> : MutableList<T> {
 	}
 
 	override fun addAll(elements: Collection<T>): Boolean =
-			addAll(size, elements)
+		addAll(size, elements)
 
 	private fun fastRemove(index: Int) {
 		moveElements(index + 1, index, size)
@@ -115,7 +115,7 @@ abstract class PrimitiveList<T> : MutableList<T> {
 	}
 
 	override fun removeAll(elements: Collection<T>): Boolean =
-			removeIf { it in elements }
+		removeIf { it in elements }
 
 	override fun removeAt(index: Int): T {
 		ensureIndex(index)
@@ -126,7 +126,7 @@ abstract class PrimitiveList<T> : MutableList<T> {
 	override fun subList(fromIndex: Int, toIndex: Int): MutableList<T> = error("not supported")
 
 	override fun retainAll(elements: Collection<T>): Boolean =
-			removeIf { it !in elements }
+		removeIf { it !in elements }
 
 	override fun remove(element: T): Boolean {
 		val index = indexOf(element)
@@ -232,7 +232,7 @@ class IntList(initialCapacity: Int = 0) : PrimitiveList<Int>() {
 	override fun indexOf(element: Int): Int = elements.indexOf(element)
 
 	override fun lastIndexOf(element: Int): Int =
-			elements.lastIndexOf(element)
+		elements.lastIndexOf(element)
 
 	override fun addAll(index: Int, elements: Collection<Int>): Boolean {
 		ensureCursor(index)
@@ -258,75 +258,7 @@ class IntList(initialCapacity: Int = 0) : PrimitiveList<Int>() {
 	}
 }
 
-fun intListOf(vararg elements: Int): IntList =
-		IntList(elements.size).apply { addAll(elements.asList()) }
+inline fun intListOf(vararg elements: Int): IntList =
+	IntList(elements.size).apply { addAll(elements.asList()) }
 
-class BooleanList(initialCapacity: Int = 0) : PrimitiveList<Boolean>() {
-	companion object {
-		private val EMPTY_DATA = booleanArrayOf()
-	}
-
-	private var elements = EMPTY_DATA
-
-	override val elementsSize: Int
-		get() = elements.size
-
-	override fun extendCapacity(newCapacity: Int) {
-		elements = elements.copyOf(newCapacity)
-	}
-
-	override fun moveElements(fromIndex: Int, toIndex: Int, count: Int) {
-		elements.copyInto(elements, toIndex, fromIndex, count)
-	}
-
-	init {
-		elements = when {
-			initialCapacity > 0 -> BooleanArray(initialCapacity)
-			initialCapacity == 0 -> EMPTY_DATA
-			else -> error("Illegal capacity: $initialCapacity")
-		}
-	}
-
-	fun copy(): BooleanList = BooleanList(size).also { it.addAll(this) }
-
-	override fun get(index: Int): Boolean {
-		ensureIndex(index)
-		return elements[index]
-	}
-
-	override fun set(index: Int, element: Boolean): Boolean {
-		ensureIndex(index)
-		return elements[index].also { elements[index] = element }
-	}
-
-	override fun indexOf(element: Boolean): Int = elements.indexOf(element)
-
-	override fun lastIndexOf(element: Boolean): Int =
-			elements.lastIndexOf(element)
-
-	override fun addAll(index: Int, elements: Collection<Boolean>): Boolean {
-		ensureCursor(index)
-		val arr = elements.toBooleanArray()
-		ensureCapacity(size + arr.size)
-		this.elements.copyInto(this.elements, index + arr.size, index, size)
-		arr.copyInto(this.elements, index)
-		size += arr.size
-		return arr.isNotEmpty()
-	}
-
-	override fun hashCode(): Int {
-		var hashCode = 1
-		for (i in this) hashCode = 31 * hashCode + if (i) 1 else 0
-		return hashCode
-	}
-
-	override fun equals(other: Any?): Boolean {
-		if (other !is BooleanList) return false
-		if (size != other.size) return false
-		for (i in indices) if (elements[i] != other.elements[i]) return false
-		return true
-	}
-}
-
-fun booleanListOf(vararg elements: Boolean): BooleanList =
-		BooleanList(elements.size).apply { addAll(elements.asList()) }
+inline fun emptyIntList(): IntList = IntList()
