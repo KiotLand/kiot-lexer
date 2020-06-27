@@ -1,7 +1,9 @@
 package org.kiot.automata
 
 import org.kiot.util.BitSet
+import org.kiot.util.CircularIntQueue
 import org.kiot.util.IntList
+import org.kiot.util.emptyBooleanList
 import org.kiot.util.emptyIntList
 
 /**
@@ -11,9 +13,10 @@ import org.kiot.util.emptyIntList
  * and store their data in several arrays. The index of begin cell is stored
  * in NFA.
  *
+ * @see DFA
  * @see Automata
  */
-class NFA private constructor(
+class NFA(
 	/**
 	 * In kiot-lexer, transitions are stored in cells themselves. Each
 	 * cell has a [CharClass]. Let A be a cell, and its [CharClass]
@@ -25,8 +28,8 @@ class NFA private constructor(
 	 * a dummy cell which does not accept any char and only transits
 	 * to all its outs when being stepped in.
 	 */
-	private val charClasses: MutableList<CharClass>,
-	private val outs: MutableList<IntList> // Mentioned above
+	private val charClasses: MutableList<CharClass> = mutableListOf(),
+	private val outs: MutableList<IntList> = mutableListOf() // Mentioned above
 ) : Automata() {
 	companion object {
 		fun from(vararg chars: Char) = NFABuilder.from(*chars).build()
@@ -41,10 +44,6 @@ class NFA private constructor(
 	fun link(from: Int, to: Int) {
 		outs[from].clear()
 		outs[from].add(to)
-	}
-
-	constructor(vararg all: NFA) : this(mutableListOf(), mutableListOf()) {
-		for (one in all) this += one
 	}
 
 	override val size: Int
@@ -83,7 +82,7 @@ class NFA private constructor(
 
 	fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
 	fun match(chars: Iterator<Char>, exact: Boolean = true) =
-		CellList().apply { putInto(beginCell, this) }.match(chars, exact)
+		CellList(this).apply { putInto(beginCell, this) }.match(chars, exact)
 
 	operator fun plusAssign(other: NFA) {
 		val offset = size
@@ -126,22 +125,24 @@ class NFA private constructor(
 	/**
 	 * A list of NFA cells.
 	 */
-	private inner class CellList(
-		val bitset: BitSet = BitSet(size),
-		val list: IntList = emptyIntList(),
-		var hasFinal: Boolean = false
+	class CellList(
+		private val nfa: NFA,
+		private val bitset: BitSet = BitSet(nfa.size),
+		private val list: IntList = emptyIntList(),
+		private var finalCount: Int = 0
 	) : MutableSet<Int> {
 		override val size: Int
 			get() = list.size
 
+		val hasFinal: Boolean
+			get() = finalCount != 0
+
 		override fun add(element: Int): Boolean {
-			if (isFinal(element))
-				return if (hasFinal) false
-				else {
-					hasFinal = true
-					list.add(element)
-					true
-				}
+			if (nfa.isFinal(element)) {
+				++finalCount
+				list.add(element)
+				return true
+			}
 			if (bitset[element]) return false
 			bitset.set(element)
 			list.add(element)
@@ -155,12 +156,11 @@ class NFA private constructor(
 		}
 
 		override fun remove(element: Int): Boolean {
-			if (isFinal(element))
-				return if (hasFinal) {
-					hasFinal = false
-					list.remove(element)
-					true
-				} else false
+			if (nfa.isFinal(element)) {
+				--finalCount
+				list.remove(element)
+				return true
+			}
 			if (!bitset[element]) return false
 			bitset.clear(element)
 			list.remove(element)
@@ -178,7 +178,7 @@ class NFA private constructor(
 			if (ret) {
 				bitset.clear()
 				for (element in list) {
-					if (isFinal(element)) hasFinal = true
+					if (nfa.isFinal(element)) ++finalCount
 					else bitset.set(element)
 				}
 			}
@@ -196,23 +196,23 @@ class NFA private constructor(
 		override fun clear() {
 			bitset.clear()
 			list.clear()
-			hasFinal = false
+			finalCount = 0
 		}
 
-		fun copy(): CellList = CellList(bitset.copy(), list.copy(), hasFinal)
+		fun copy(): CellList = CellList(nfa, bitset.copy(), list.copy(), finalCount)
 
 		fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
 		fun match(chars: kotlin.collections.Iterator<Char>, exact: Boolean = true): Boolean {
 			if (!chars.hasNext()) return hasFinal
 			if ((!exact) && hasFinal) return true
 			var listA = copy()
-			var listB = CellList()
+			var listB = CellList(nfa)
 			var localHasFinal: Boolean
 			do {
 				val char = chars.next()
 				localHasFinal = false
 				for (cell in listA) {
-					if ((!localHasFinal) && transit(cell, char, listB)) {
+					if ((!localHasFinal) && nfa.transit(cell, char, listB)) {
 						localHasFinal = true
 						if (!exact) return true
 					}
@@ -225,13 +225,13 @@ class NFA private constructor(
 			return localHasFinal
 		}
 
-		override fun hashCode(): Int = bitset.hashCode()
+		override fun hashCode(): Int = bitset.hashCode() * 31 + finalCount
 		override fun equals(other: Any?): Boolean =
-			if (other is CellList) bitset == other.bitset
+			if (other is CellList) finalCount == other.finalCount && bitset == other.bitset
 			else false
 
 		inner class Iterator : MutableIterator<Int> {
-			var index = 0
+			private var index = 0
 
 			override fun hasNext(): Boolean = index != list.size
 
@@ -242,5 +242,68 @@ class NFA private constructor(
 				remove(list[--index])
 			}
 		}
+
+		fun transitionSet(): TransitionSet {
+			val set = TransitionSet()
+			for (cell in this) {
+				if (nfa.isFinal(cell)) continue
+				val ranges = nfa.charClasses[cell].ranges
+				val list = CellList(nfa)
+				for (out in nfa.outs[cell]) nfa.putInto(out, list)
+				for (range in ranges)
+					set.add(range, list)
+			}
+			set.optimize()
+			return set
+		}
+
+		class TransitionSet : org.kiot.automata.TransitionSet<CellList>() {
+			override fun copy(element: CellList): CellList = element.copy()
+
+			override fun CellList.append(other: CellList) {
+				addAll(other)
+			}
+		}
+	}
+
+	/**
+	 * Convert a NFA into DFA using Subset Construction.
+	 */
+	fun toDFA(): DFA {
+		val charRanges = mutableListOf<MutableList<PlainCharRange>>()
+		val outs = mutableListOf<MutableList<Int>>()
+		val finalFlags = emptyBooleanList()
+		val queue = CircularIntQueue(size)
+
+		// TODO maybe use mutableMapOf(LinkedHashMap) here?
+		val cellMap = hashMapOf<CellList, Int>()
+		val sets = mutableListOf<CellList.TransitionSet>()
+		fun indexOf(list: CellList): Int =
+			cellMap[list] ?: run {
+				val index = charRanges.size
+				cellMap[list] = index
+				queue.push(index)
+				sets.add(list.transitionSet())
+				charRanges.add(mutableListOf())
+				outs.add(mutableListOf())
+				finalFlags += list.hasFinal
+				index
+			}
+
+		CellList(this).apply {
+			putInto(beginCell, this)
+			indexOf(this)
+		}
+		while (queue.isNotEmpty()) {
+			val x = queue.pop()
+			val set = sets[x]
+			val myCharRanges = charRanges[x]
+			val myOuts = outs[x]
+			for (pair in set) {
+				myCharRanges.add(pair.first)
+				myOuts.add(indexOf(pair.second))
+			}
+		}
+		return DFA(charRanges, outs, finalFlags.toBitSet())
 	}
 }

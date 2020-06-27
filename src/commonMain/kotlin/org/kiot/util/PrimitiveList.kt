@@ -261,4 +261,81 @@ class IntList(initialCapacity: Int = 0) : PrimitiveList<Int>() {
 inline fun intListOf(vararg elements: Int): IntList =
 	IntList(elements.size).apply { addAll(elements.asList()) }
 
-inline fun emptyIntList(): IntList = IntList()
+inline fun emptyIntList() = IntList()
+
+class BooleanList(initialCapacity: Int = 0) : PrimitiveList<Boolean>() {
+	companion object {
+		private val EMPTY_DATA = booleanArrayOf()
+	}
+
+	private var elements = EMPTY_DATA
+
+	override val elementsSize: Int
+		get() = elements.size
+
+	override fun extendCapacity(newCapacity: Int) {
+		elements = elements.copyOf(newCapacity)
+	}
+
+	override fun moveElements(fromIndex: Int, toIndex: Int, count: Int) {
+		elements.copyInto(elements, toIndex, fromIndex, count)
+	}
+
+	init {
+		elements = when {
+			initialCapacity > 0 -> BooleanArray(initialCapacity)
+			initialCapacity == 0 -> EMPTY_DATA
+			else -> error("Illegal capacity: $initialCapacity")
+		}
+	}
+
+	fun copy(): BooleanList = BooleanList(size).also { it.addAll(this) }
+
+	override fun get(index: Int): Boolean {
+		ensureIndex(index)
+		return elements[index]
+	}
+
+	override fun set(index: Int, element: Boolean): Boolean {
+		ensureIndex(index)
+		return elements[index].also { elements[index] = element }
+	}
+
+	override fun indexOf(element: Boolean): Int = elements.indexOf(element)
+
+	override fun lastIndexOf(element: Boolean): Int =
+		elements.lastIndexOf(element)
+
+	override fun addAll(index: Int, elements: Collection<Boolean>): Boolean {
+		ensureCursor(index)
+		val arr = elements.toBooleanArray()
+		ensureCapacity(size + arr.size)
+		this.elements.copyInto(this.elements, index + arr.size, index, size)
+		arr.copyInto(this.elements, index)
+		size += arr.size
+		return arr.isNotEmpty()
+	}
+
+	override fun hashCode(): Int {
+		var hashCode = 1
+		for (i in this) hashCode = 31 * hashCode + (if (i) 1 else 0)
+		return hashCode
+	}
+
+	override fun equals(other: Any?): Boolean {
+		if (other !is BooleanList) return false
+		if (size != other.size) return false
+		for (i in indices) if (elements[i] != other.elements[i]) return false
+		return true
+	}
+
+	fun toBitSet(): BitSet =
+		BitSet(size).also {
+			for (i in indices) if (this[i]) it.set(i)
+		}
+}
+
+inline fun booleanListOf(vararg elements: Boolean): BooleanList =
+	BooleanList(elements.size).apply { addAll(elements.asList()) }
+
+inline fun emptyBooleanList() = BooleanList()

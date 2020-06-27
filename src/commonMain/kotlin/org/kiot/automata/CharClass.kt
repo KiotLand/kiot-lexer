@@ -25,9 +25,9 @@ data class PlainCharRange(val start: Char, val end: Char) {
 	}
 
 	operator fun compareTo(other: PlainCharRange) =
-			start.compareTo(other.start).let {
-				if (it == 0) end.compareTo(other.end) else it
-			}
+		start.compareTo(other.start).let {
+			if (it == 0) end.compareTo(other.end) else it
+		}
 
 	operator fun contains(char: Char): Boolean = char in start..end
 
@@ -40,11 +40,11 @@ data class PlainCharRange(val start: Char, val end: Char) {
 	 * range (sorted) with square brackets. Used for pretty printing in cases like debugging.
 	 */
 	fun expand(): String =
-			buildString(end - start + 1) {
-				append('[')
-				for (i in start..end) append(i)
-				append(']')
-			}
+		buildString(end - start + 1) {
+			append('[')
+			for (i in start..end) append(i)
+			append(']')
+		}
 }
 
 infix fun Char.plainTo(other: Char) = PlainCharRange(this, other)
@@ -71,12 +71,13 @@ class CharClass(vararg val ranges: PlainCharRange) {
 		 * @see fromSorted
 		 */
 		fun from(vararg chars: Char) =
-				fromSorted(*chars.also { it.sort() })
+			fromSorted(*chars.also { it.sort() })
 
 		/**
 		 * Obtain [CharClass] from a sorted string, equivalent to `fromSortedChars({all chars in [chars]})`
 		 */
-		fun fromSorted(chars: String) = fromSorted(*CharArray(chars.length).apply { for (i in chars.indices) this[i] = chars[i] })
+		fun fromSorted(chars: String) =
+			fromSorted(*CharArray(chars.length).apply { for (i in chars.indices) this[i] = chars[i] })
 
 		/**
 		 * Obtain [CharRange] from several chars, requiring the given
@@ -115,17 +116,33 @@ class CharClass(vararg val ranges: PlainCharRange) {
 	operator fun contains(char: Char): Boolean {
 		var lef = 0
 		var rig = ranges.lastIndex
-		var ret: PlainCharRange? = null
 		// Binary search.
 		while (lef <= rig) {
 			val mid = (lef + rig) ushr 1
 			if (char >= ranges[mid].start) {
+				if (char <= ranges[mid].end) return true
 				lef = mid + 1
-				ret = ranges[mid]
 			} else rig = mid - 1
 		}
-		ret ?: return false
-		return char in ret
+		return false
+	}
+
+	/**
+	 * Find the index of [PlainCharRange] that contains [char].
+	 * If there's no such [PlainCharRange], returns -1.
+	 */
+	fun indexOf(char: Char): Int {
+		var lef = 0
+		var rig = ranges.lastIndex
+		var ret: Int = -1
+		while (lef <= rig) {
+			val mid = (lef + rig) ushr 1
+			if (char >= ranges[mid].start) {
+				lef = mid + 1
+				ret = mid
+			} else rig = mid - 1
+		}
+		return if (ret == -1 || char !in ranges[ret]) -1 else ret
 	}
 
 	/**
@@ -139,9 +156,9 @@ class CharClass(vararg val ranges: PlainCharRange) {
 
 		// Which side should be considered first?
 		fun side(): Boolean =
-				if (i == ranges.size) true
-				else if (j == other.ranges.size) false
-				else ranges[i] > other.ranges[j]
+			if (i == ranges.size) true
+			else if (j == other.ranges.size) false
+			else ranges[i] > other.ranges[j]
 		while (i != ranges.size || j != other.ranges.size) {
 			val start: Char
 			var end: Char
@@ -165,8 +182,8 @@ class CharClass(vararg val ranges: PlainCharRange) {
 	}
 
 	override fun equals(other: Any?): Boolean =
-			if (other is CharClass) ranges.contentEquals(other.ranges)
-			else false
+		if (other is CharClass) ranges.contentEquals(other.ranges)
+		else false
 
 	override fun hashCode(): Int = ranges.hashCode()
 
@@ -201,10 +218,10 @@ class CharClass(vararg val ranges: PlainCharRange) {
 	 * class (sorted) with square brackets. Used for pretty printing in cases like debugging.
 	 */
 	fun expand() =
-			buildString {
-				append('[')
-				for (range in ranges)
-					for (char in range.start..range.end) append(char)
-				append(']')
-			}
+		buildString {
+			append('[')
+			for (range in ranges)
+				for (char in range.start..range.end) append(char)
+			append(']')
+		}
 }
