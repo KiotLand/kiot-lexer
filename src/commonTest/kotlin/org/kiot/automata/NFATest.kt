@@ -8,6 +8,9 @@ import kotlin.test.assertTrue
 
 internal class NFATest {
 	companion object {
+		/**
+		 * A NFA that matches decimal representations of integers that can be divided by 3.
+		 */
 		fun buildThree(): NFA {
 			val `0369` = NFABuilder.fromSorted("0369").any()
 			val `147` = NFABuilder.fromSorted("147")
