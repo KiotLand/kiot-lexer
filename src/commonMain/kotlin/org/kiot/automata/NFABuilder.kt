@@ -73,9 +73,9 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 		if (branches.isEmpty()) return this
 		if (branches.size == 1) return append(branches[0])
 		/*
-					/--> (NFA1) --\
+		            /--> (NFA1) --\
 		(Begin) --<      ......     >--> (End) --> (Final)
-					\--> (NFAn) --/
+		            \--> (NFAn) --/
 		 */
 		val newBegin = nfa.appendDummyCell()
 		extend(newBegin)
@@ -183,8 +183,8 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 	 */
 	fun oneOrMore(): NFABuilder {
 		/*
-           |---------------------|
-           √                     |
+		   |---------------------|
+		   √                     |
 		(Begin) --> (End) --> (Dummy1) --> (Dummy2) --> (Final)
 		 */
 		with(nfa) {
@@ -237,8 +237,8 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 	fun repeat(start: Int, endInclusive: Int): NFABuilder {
 		if (start > endInclusive || start < 0) throw IllegalArgumentException()
 		/*
-                                          |-------------------------------------------------------|
-                                          |                                                       √
+		                                  |-------------------------------------------------------|
+		                                  |                                                       √
 		((Begin) --> (End))*start --> ((Dummy) --> (Begin) --> (End))*(endInclusive-start) --> (Final)
 		 */
 		val backup = copy()
