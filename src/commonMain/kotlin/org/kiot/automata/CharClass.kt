@@ -190,8 +190,8 @@ class CharClass(vararg val ranges: PlainCharRange) {
 	override fun toString(): String {
 		if (ranges.isEmpty()) return "{}"
 		return buildString {
-			for (i in ranges) append(i).append(", ")
-			removeRange(length - 2, length)
+			append(ranges[0])
+			for (i in 1 until ranges.size) append(", ").append(ranges[i])
 		}
 	}
 

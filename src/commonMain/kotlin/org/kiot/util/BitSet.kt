@@ -32,7 +32,7 @@ class BitSet private constructor(private val length: Int, private val words: Lon
 	}
 
 	operator fun set(index: Int, flag: Boolean) =
-			if (flag) set(index) else clear(index)
+		if (flag) set(index) else clear(index)
 
 	fun clear(index: Int) {
 		index.ensureInRange()
@@ -65,6 +65,6 @@ class BitSet private constructor(private val length: Int, private val words: Lon
 	}
 
 	override fun equals(other: Any?): Boolean =
-			if (other is BitSet) length == other.length && words.contentEquals(other.words)
-			else false
+		if (other is BitSet) length == other.length && words.contentEquals(other.words)
+		else false
 }

@@ -67,7 +67,7 @@ class NFA(
 			return isFinal(cellIndex)
 		}
 		var ret = isFinal(cellIndex)
-		for (i in outs[cellIndex]) ret = ret || putInto(i, list)
+		for (i in outs[cellIndex]) if (putInto(i, list)) ret = true
 		return ret
 	}
 
@@ -76,7 +76,7 @@ class NFA(
 		// When the cell is dummy, its CharClass should be empty and this following check will be satisfied.
 		if (char !in charClasses[cellIndex]) return false
 		var ret = isFinal(cellIndex)
-		for (i in outs[cellIndex]) ret = ret || putInto(i, list)
+		for (i in outs[cellIndex]) if (putInto(i, list)) ret = true
 		return ret
 	}
 
@@ -151,7 +151,7 @@ class NFA(
 
 		override fun addAll(elements: Collection<Int>): Boolean {
 			var ret = false
-			for (element in elements) ret = ret || add(element)
+			for (element in elements) if (add(element)) ret = true
 			return ret
 		}
 
@@ -169,7 +169,7 @@ class NFA(
 
 		override fun removeAll(elements: Collection<Int>): Boolean {
 			var ret = false
-			for (element in elements) ret = ret || remove(element)
+			for (element in elements) if (remove(element)) ret = true
 			return ret
 		}
 
@@ -225,9 +225,9 @@ class NFA(
 			return localHasFinal
 		}
 
-		override fun hashCode(): Int = bitset.hashCode() * 31 + finalCount
+		override fun hashCode(): Int = bitset.hashCode() * 31 + (if (finalCount == 0) 0 else 1)
 		override fun equals(other: Any?): Boolean =
-			if (other is CellList) finalCount == other.finalCount && bitset == other.bitset
+			if (other is CellList) hasFinal == other.hasFinal && bitset == other.bitset
 			else false
 
 		inner class Iterator : MutableIterator<Int> {
@@ -277,13 +277,13 @@ class NFA(
 
 		// TODO maybe use mutableMapOf(LinkedHashMap) here?
 		val cellMap = hashMapOf<CellList, Int>()
-		val sets = mutableListOf<CellList.TransitionSet>()
+		val sets = mutableListOf<CellList>()
 		fun indexOf(list: CellList): Int =
 			cellMap[list] ?: run {
 				val index = charRanges.size
 				cellMap[list] = index
 				queue.push(index)
-				sets.add(list.transitionSet())
+				sets.add(list)
 				charRanges.add(mutableListOf())
 				outs.add(mutableListOf())
 				finalFlags += list.hasFinal
@@ -296,7 +296,7 @@ class NFA(
 		}
 		while (queue.isNotEmpty()) {
 			val x = queue.pop()
-			val set = sets[x]
+			val set = sets[x].transitionSet()
 			val myCharRanges = charRanges[x]
 			val myOuts = outs[x]
 			for (pair in set) {

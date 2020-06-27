@@ -42,6 +42,11 @@ class DFA internal constructor(
 	val beginCell: Int
 		get() = 0
 
+	val indices: IntRange
+		get() = 0 until size
+
+	fun charRangesOf(cellIndex: Int) = charRanges[cellIndex]
+	fun outsOf(cellIndex: Int) = outs[cellIndex]
 	fun isFinal(cellIndex: Int) = finalFlags[cellIndex]
 
 	fun transit(cellIndex: Int, char: Char): Int {

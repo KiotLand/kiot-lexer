@@ -1,11 +1,58 @@
 package org.kiot.automata
 
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 internal class NFATest {
+	companion object {
+		fun buildThree(): NFA {
+			val `0369` = NFABuilder.fromSorted("0369").any()
+			val `147` = NFABuilder.fromSorted("147")
+			val `258` = NFABuilder.fromSorted("258")
+			return NFABuilder()
+				.append(`0369`)
+				.append(
+					NFABuilder.branch(
+						NFABuilder()
+							.appendBranch(
+								NFABuilder()
+									.append(`147`)
+									.append(`0369`),
+								NFABuilder()
+									.append(`258`)
+									.append(`0369`)
+									.append(`258`)
+									.append(`0369`)
+							).append(
+								NFABuilder()
+									.append(`147`)
+									.append(`0369`)
+									.append(`258`)
+									.append(`0369`)
+									.any()
+							).appendBranch(
+								NFABuilder()
+									.append(`258`)
+									.append(`0369`),
+								NFABuilder()
+									.append(`147`)
+									.append(`0369`)
+									.append(`147`)
+									.append(`0369`)
+							),
+						NFABuilder()
+							.append(`258`)
+							.append(`0369`)
+							.append(`147`)
+							.append(`0369`)
+					).any()
+				).build()
+		}
+	}
+
 	@Test
 	fun test() {
 		NFA.from("1234").apply {
@@ -90,6 +137,15 @@ internal class NFATest {
 			assertTrue(match("a"))
 			assertTrue(match(""))
 			assertTrue(match("aaa"))
+		}
+	}
+
+	@Test
+	fun testThree() {
+		val nfa = buildThree()
+		repeat(200) {
+			val number = Random.nextInt(0, 2000) * 3
+			assertTrue(nfa.match(number.toString()))
 		}
 	}
 }

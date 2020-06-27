@@ -66,7 +66,7 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 
 	fun appendBranch(vararg branches: NFABuilder): NFABuilder {
 		if (branches.isEmpty()) return this
-		if (branches.size == 1) return appendBranch(branches[0])
+		if (branches.size == 1) return append(branches[0])
 		/*
 					/--> (NFA1) --\
 		(Begin) --<      ......     >--> (End) --> (Final)
