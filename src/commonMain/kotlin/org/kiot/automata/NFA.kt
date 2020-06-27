@@ -3,6 +3,7 @@ package org.kiot.automata
 import org.kiot.util.BitSet
 import org.kiot.util.CircularIntQueue
 import org.kiot.util.IntList
+import org.kiot.util.MutablePair
 import org.kiot.util.emptyBooleanList
 import org.kiot.util.emptyIntList
 
@@ -216,33 +217,49 @@ class NFA(
 			override fun next(): Int = list[index++]
 		}
 
-		internal fun transitionSet(): TransitionSet {
+		internal fun transitionSet(marks: IntArray?): TransitionSet {
 			val set = TransitionSet()
 			for (cell in this) {
 				if (nfa.isFinal(cell)) continue
 				val ranges = nfa.charClasses[cell].ranges
 				val list = CellList(nfa)
 				for (out in nfa.outs[cell]) nfa.putInto(out, list)
+				val mark =
+					if (marks == null) 0
+					else {
+						var currentMark = 0
+						for (i in list) {
+							if (nfa.isFinal(i) || marks[i] == 0) continue
+							if (currentMark == 0) currentMark = marks[i]
+							else error("marks conflict")
+						}
+						currentMark
+					}
 				for (range in ranges)
-					set.add(range, list)
+					set.add(range, MutablePair(list, mark))
 			}
 			set.optimize()
 			return set
 		}
 
-		internal class TransitionSet : org.kiot.automata.TransitionSet<CellList>() {
-			override fun copy(element: CellList): CellList = element.copy()
+		internal class TransitionSet : org.kiot.automata.TransitionSet<MutablePair<CellList, Int>>() {
+			override fun copy(element: MutablePair<CellList, Int>) = MutablePair(element.first.copy(), element.second)
 
-			override fun CellList.append(other: CellList) {
-				addAll(other.list)
+			override fun MutablePair<CellList, Int>.append(other: MutablePair<CellList, Int>) {
+				if (second != 0 && other.second != 0) error("marks conflict")
+				first.addAll(other.first.list)
+				if (second == 0) second = other.second
 			}
 		}
 	}
 
+	fun toDFA(): DFA = toDFA(null).first
+
 	/**
 	 * Convert a NFA into DFA using Subset Construction.
 	 */
-	fun toDFA(): DFA {
+	fun toDFA(marks: IntArray?): Pair<DFA, List<IntList>?> {
+		require(marks == null || marks.size == size)
 		val charRanges = mutableListOf<MutableList<PlainCharRange>>()
 		val outs = mutableListOf<MutableList<Int>>()
 		val finalFlags = emptyBooleanList()
@@ -250,15 +267,17 @@ class NFA(
 
 		// TODO maybe use mutableMapOf(LinkedHashMap) here?
 		val cellMap = hashMapOf<CellList, Int>()
-		val sets = mutableListOf<CellList>()
+		val sets = mutableListOf<CellList.TransitionSet>()
+		val transitionMarks = mutableListOf<IntList>()
 		fun indexOf(list: CellList): Int =
 			cellMap[list] ?: run {
 				val index = charRanges.size
 				cellMap[list] = index
 				queue.push(index)
-				sets.add(list)
+				sets.add(list.transitionSet(marks))
 				charRanges.add(mutableListOf())
 				outs.add(mutableListOf())
+				transitionMarks.add(emptyIntList())
 				finalFlags += list.hasFinal
 				index
 			}
@@ -269,14 +288,19 @@ class NFA(
 		}
 		while (queue.isNotEmpty()) {
 			val x = queue.pop()
-			val set = sets[x].transitionSet()
+			val set = sets[x]
 			val myCharRanges = charRanges[x]
 			val myOuts = outs[x]
+			val newMarks = transitionMarks[x]
 			for (pair in set) {
 				myCharRanges.add(pair.first)
-				myOuts.add(indexOf(pair.second))
+				myOuts.add(indexOf(pair.second.first))
+				newMarks.add(pair.second.second)
 			}
 		}
-		return DFA(charRanges, outs, finalFlags.toBitSet())
+		return Pair(
+			DFA(charRanges, outs, finalFlags.toBitSet()),
+			transitionMarks
+		)
 	}
 }

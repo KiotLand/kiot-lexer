@@ -172,7 +172,7 @@ abstract class PrimitiveList<T> : MutableList<T> {
 		}
 
 		override fun set(element: T) {
-			if (lastRet < 0) throw IllegalStateException()
+			require(lastRet >= 0)
 			set(lastRet, element)
 		}
 
@@ -183,7 +183,7 @@ abstract class PrimitiveList<T> : MutableList<T> {
 		}
 
 		override fun remove() {
-			if (lastRet < 0) throw IllegalStateException()
+			require(lastRet >= 0)
 			removeAt(lastRet)
 			cursor = lastRet
 			lastRet = -1
@@ -196,7 +196,8 @@ class IntList(initialCapacity: Int = 0) : PrimitiveList<Int>() {
 		private val EMPTY_DATA = intArrayOf()
 	}
 
-	private var elements = EMPTY_DATA
+	var elements = EMPTY_DATA
+		private set
 
 	override val elementsSize: Int
 		get() = elements.size

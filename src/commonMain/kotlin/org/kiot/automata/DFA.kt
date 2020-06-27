@@ -53,14 +53,20 @@ class DFA internal constructor(
 	fun outsOf(cellIndex: Int) = outs[cellIndex]
 	fun isFinal(cellIndex: Int) = finalFlags[cellIndex]
 
-	fun transit(cellIndex: Int, char: Char): Int {
+	fun transit(cellIndex: Int, char: Char) =
+		transitionIndex(cellIndex, char).let {
+			if (it == -1) -1
+			else outs[cellIndex][it]
+		}
+
+	fun transitionIndex(cellIndex: Int, char: Char): Int {
 		val ranges = charRanges[cellIndex]
 		var l = 0
 		var r = ranges.lastIndex
 		while (l <= r) {
 			val mid = (l + r) ushr 1
 			if (char >= ranges[mid].start) {
-				if (char <= ranges[mid].end) return outs[cellIndex][mid]
+				if (char <= ranges[mid].end) return mid
 				l = mid + 1
 			} else r = mid - 1
 		}

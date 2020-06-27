@@ -28,7 +28,7 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 
 		fun from(chars: CharSequence) = from(chars.iterator())
 		fun from(chars: Iterator<Char>): NFABuilder {
-			if (!chars.hasNext()) throw IllegalArgumentException()
+			require(chars.hasNext())
 			return NFABuilder().append(chars)
 		}
 	}
@@ -41,17 +41,17 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 	val size: Int
 		inline get() = nfa.size
 
-	private fun extend(cellIndex: Int) {
+	fun extend(cellIndex: Int) {
 		if (nfa.isFinal(beginCell)) nfa.beginCell = cellIndex
 		else nfa.link(endCell, cellIndex)
 	}
 
-	private fun makeEnd(cellIndex: Int) {
+	fun makeEnd(cellIndex: Int) {
 		nfa.link(cellIndex, nfa.finalCell)
 		endCell = cellIndex
 	}
 
-	private fun extendEnd(cellIndex: Int) {
+	fun extendEnd(cellIndex: Int) {
 		extend(cellIndex)
 		makeEnd(cellIndex)
 	}
@@ -172,7 +172,7 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 
 	fun build() = nfa
 
-	private fun include(other: NFABuilder) {
+	fun include(other: NFABuilder) {
 		val offset = nfa.size
 		nfa += other.nfa
 		endCell = offset + other.endCell
@@ -235,7 +235,7 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 	}
 
 	fun repeat(start: Int, endInclusive: Int): NFABuilder {
-		if (start > endInclusive || start < 0) throw IllegalArgumentException()
+		require(start in 0..endInclusive)
 		/*
 		                                  |-------------------------------------------------------|
 		                                  |                                                       √
