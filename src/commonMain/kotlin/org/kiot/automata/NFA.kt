@@ -115,6 +115,7 @@ class NFA(
 	fun clear() {
 		charClasses.clear()
 		outs.clear()
+		beginCell = finalCell
 	}
 
 	internal fun clearRange(from: Int, to: Int) {

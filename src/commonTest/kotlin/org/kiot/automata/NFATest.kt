@@ -141,6 +141,13 @@ internal class NFATest {
 			assertTrue(match(""))
 			assertTrue(match("aaa"))
 		}
+		NFABuilder.from("a ").repeat(1, 3).build().apply {
+			assertTrue(match("a "))
+			assertTrue(match("a a "))
+			assertTrue(match("a a a "))
+			assertFalse(match(""))
+			assertFalse(match("a a a a "))
+		}
 	}
 
 	@Test

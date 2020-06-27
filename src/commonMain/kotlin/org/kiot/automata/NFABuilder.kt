@@ -58,6 +58,11 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 
 	fun copy(): NFABuilder = NFABuilder(nfa.copy(), endCell)
 
+	fun clear() {
+		nfa.clear()
+		endCell = 0
+	}
+
 	fun append(other: NFABuilder): NFABuilder {
 		extend(other.beginCell + size)
 		include(other)
@@ -225,6 +230,25 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 			extend(dummy1)
 			beginCell = dummy1
 			makeEnd(dummy2)
+		}
+		return this
+	}
+
+	fun repeat(start: Int, endInclusive: Int): NFABuilder {
+		if (start > endInclusive || start < 0) throw IllegalArgumentException()
+		/*
+                                          |-------------------------------------------------------|
+                                          |                                                       √
+		((Begin) --> (End))*start --> ((Dummy) --> (Begin) --> (End))*(endInclusive-start) --> (Final)
+		 */
+		val backup = copy()
+		clear()
+		repeat(start) {
+			append(backup)
+		}
+		backup.beginCell = backup.nfa.appendDummyCell(intListOf(backup.beginCell, backup.nfa.finalCell))
+		repeat(endInclusive - start) {
+			append(backup)
 		}
 		return this
 	}
