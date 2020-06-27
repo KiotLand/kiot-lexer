@@ -1,9 +1,5 @@
 package org.kiot.automata
 
-// Pretty surprised that there are no min(Char, Char) or max(Char, Char) in kotlin-stdlib, so I have to write my own...
-private fun min(a: Char, b: Char) = if (a >= b) b else a
-private fun max(a: Char, b: Char) = if (a >= b) a else b
-
 /**
  * Alternative to [CharRange] in kotlin-stdlib.
  *

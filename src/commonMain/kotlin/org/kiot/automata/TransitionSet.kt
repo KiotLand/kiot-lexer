@@ -2,7 +2,7 @@ package org.kiot.automata
 
 import org.kiot.util.contentEquals
 
-abstract class TransitionSet<T : Any> : Iterable<Pair<PlainCharRange, T>> {
+internal abstract class TransitionSet<T : Any> : Iterable<Pair<PlainCharRange, T>> {
 	val ranges = mutableListOf<PlainCharRange>()
 	val targets = mutableListOf<T?>() // null means a placeholder
 	private var optimized = true
