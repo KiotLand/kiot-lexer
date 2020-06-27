@@ -52,4 +52,14 @@ internal class DFATest {
 			assertTrue(dfa.match(number.toString()))
 		}
 	}
+
+	@Test
+	fun testMinimize() {
+		val dfa = NFATest.buildThree().toDFA().minimize()
+		assertEquals(3, dfa.size)
+		repeat(200) {
+			val number = Random.nextInt(0, 2000) * 3
+			assertTrue(dfa.match(number.toString()))
+		}
+	}
 }

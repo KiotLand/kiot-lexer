@@ -63,7 +63,7 @@ class NFA(
 
 	private fun putInto(cellIndex: Int, list: CellList): Boolean {
 		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
-			list += cellIndex
+			list.add(cellIndex)
 			return isFinal(cellIndex)
 		}
 		var ret = isFinal(cellIndex)
@@ -131,70 +131,47 @@ class NFA(
 		private val bitset: BitSet = BitSet(nfa.size),
 		private val list: IntList = emptyIntList(),
 		private var finalCount: Int = 0
-	) : MutableSet<Int> {
-		override val size: Int
+	) {
+		val size: Int
 			get() = list.size
 
 		val hasFinal: Boolean
 			get() = finalCount != 0
 
-		override fun add(element: Int): Boolean {
+		fun add(element: Int) {
 			if (nfa.isFinal(element)) {
 				++finalCount
 				list.add(element)
-				return true
+				return
 			}
-			if (bitset[element]) return false
+			if (bitset[element]) return
 			bitset.set(element)
 			list.add(element)
-			return true
 		}
 
-		override fun addAll(elements: Collection<Int>): Boolean {
-			var ret = false
-			for (element in elements) if (add(element)) ret = true
-			return ret
+		fun addAll(elements: IntList) {
+			for (element in elements) add(element)
 		}
 
-		override fun remove(element: Int): Boolean {
+		fun remove(element: Int) {
 			if (nfa.isFinal(element)) {
 				--finalCount
 				list.remove(element)
-				return true
+				return
 			}
-			if (!bitset[element]) return false
+			if (!bitset[element]) return
 			bitset.clear(element)
 			list.remove(element)
-			return true
 		}
 
-		override fun removeAll(elements: Collection<Int>): Boolean {
-			var ret = false
-			for (element in elements) if (remove(element)) ret = true
-			return ret
-		}
+		fun contains(element: Int): Boolean = bitset[element]
 
-		override fun retainAll(elements: Collection<Int>): Boolean {
-			val ret = list.retainAll(elements)
-			if (ret) {
-				bitset.clear()
-				for (element in list) {
-					if (nfa.isFinal(element)) ++finalCount
-					else bitset.set(element)
-				}
-			}
-			return ret
-		}
+		fun isEmpty(): Boolean = size == 0
+		fun isNotEmpty(): Boolean = size != 0
 
-		override fun contains(element: Int): Boolean = bitset[element]
+		operator fun iterator() = Iterator()
 
-		override fun containsAll(elements: Collection<Int>): Boolean = elements.all { contains(it) }
-
-		override fun isEmpty(): Boolean = size == 0
-
-		override fun iterator(): MutableIterator<Int> = Iterator()
-
-		override fun clear() {
+		fun clear() {
 			bitset.clear()
 			list.clear()
 			finalCount = 0
@@ -231,20 +208,15 @@ class NFA(
 			if (other is CellList) hasFinal == other.hasFinal && bitset == other.bitset
 			else false
 
-		inner class Iterator : MutableIterator<Int> {
+		inner class Iterator : kotlin.collections.Iterator<Int> {
 			private var index = 0
 
 			override fun hasNext(): Boolean = index != list.size
 
 			override fun next(): Int = list[index++]
-
-			override fun remove() {
-				if (index == 0) throw IllegalStateException()
-				remove(list[--index])
-			}
 		}
 
-		fun transitionSet(): TransitionSet {
+		internal fun transitionSet(): TransitionSet {
 			val set = TransitionSet()
 			for (cell in this) {
 				if (nfa.isFinal(cell)) continue
@@ -258,11 +230,11 @@ class NFA(
 			return set
 		}
 
-		class TransitionSet : org.kiot.automata.TransitionSet<CellList>() {
+		internal class TransitionSet : org.kiot.automata.TransitionSet<CellList>() {
 			override fun copy(element: CellList): CellList = element.copy()
 
 			override fun CellList.append(other: CellList) {
-				addAll(other)
+				addAll(other.list)
 			}
 		}
 	}

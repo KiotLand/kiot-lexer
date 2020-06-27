@@ -8,9 +8,6 @@ class BitSet private constructor(private val length: Int, private val words: Lon
 		private fun Int.wordIndex(): Int = this shr 6
 	}
 
-	private var lastHashCode = 0
-	private var modified = true
-
 	init {
 		require(length >= 0) { "The length must be positive or zero" }
 	}
@@ -39,29 +36,22 @@ class BitSet private constructor(private val length: Int, private val words: Lon
 		index.wordIndex().let {
 			words[it] = words[it] and (1L shl index).inv()
 		}
-		modified = true
 	}
 
 	fun set(index: Int) {
 		index.ensureInRange()
 		index.wordIndex().let { words[it] = words[it] or (1L shl index) }
-		modified = true
 	}
 
 	fun clear() {
 		words.fill(0)
-		modified = true
 	}
 
 	override fun hashCode(): Int {
-		if (!modified) return lastHashCode
 		var h = 1234L
 		for (i in words.indices.reversed())
 			h = h xor (words[i] * (i + 1))
-		return ((h shr 32) xor h).toInt().also {
-			modified = false
-			lastHashCode = it
-		}
+		return ((h shr 32) xor h).toInt()
 	}
 
 	override fun equals(other: Any?): Boolean =

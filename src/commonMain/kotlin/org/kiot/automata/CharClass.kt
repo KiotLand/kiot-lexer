@@ -83,20 +83,45 @@ class CharClass(vararg val ranges: PlainCharRange) {
 		 */
 		fun fromSorted(vararg chars: Char): CharClass {
 			if (chars.isEmpty()) return empty
-			var begin = chars[0]
+			var start = chars[0]
 			var end = chars[0]
 			val list = mutableListOf<PlainCharRange>()
 			for (i in 1 until chars.size) {
 				val char = chars[i]
 				if (char == end + 1) end = char
 				else {
-					list.add(begin plainTo end)
-					begin = char
+					list.add(start plainTo end)
+					start = char
 					end = char
 				}
 			}
-			if (list.isEmpty() || list.last().start != begin)
-				list.add(begin plainTo end)
+			if (list.isEmpty() || list.last().start != start)
+				list.add(start plainTo end)
+			return CharClass(*list.toTypedArray())
+		}
+
+		/**
+		 * Obtain [CharRange] from several [PlainCharRange], requiring the given
+		 * ranges are sorted and DO NOT OVERLAP.
+		 *
+		 * @see from
+		 */
+		fun fromSorted(chars: List<PlainCharRange>): CharClass {
+			if (chars.isEmpty()) return empty
+			var start = chars[0].start
+			var end = chars[0].end
+			val list = mutableListOf<PlainCharRange>()
+			for (i in 1 until chars.size) {
+				val range = chars[i]
+				if (range.start == end + 1) end = range.end
+				else {
+					list.add(start plainTo end)
+					start = range.start
+					end = range.end
+				}
+			}
+			if (list.isEmpty() || list.last().start != start)
+				list.add(start plainTo end)
 			return CharClass(*list.toTypedArray())
 		}
 	}
