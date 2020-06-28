@@ -141,10 +141,10 @@ abstract class PrimitiveList<T> : MutableList<T> {
 		if (isEmpty()) return "[]"
 		return buildString {
 			append('[')
-			append(this[0])
+			append(get(0))
 			for (i in 1 until size) {
 				append(", ")
-				append(this[i])
+				append(get(i))
 			}
 			append(']')
 		}

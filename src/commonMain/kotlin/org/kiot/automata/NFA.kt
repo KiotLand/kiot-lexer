@@ -224,19 +224,8 @@ class NFA(
 				val ranges = nfa.charClasses[cell].ranges
 				val list = CellList(nfa)
 				for (out in nfa.outs[cell]) nfa.putInto(out, list)
-				val mark =
-					if (marks == null) 0
-					else {
-						var currentMark = 0
-						for (i in list) {
-							if (nfa.isFinal(i) || marks[i] == 0) continue
-							if (currentMark == 0) currentMark = marks[i]
-							else error("marks conflict")
-						}
-						currentMark
-					}
 				for (range in ranges)
-					set.add(range, MutablePair(list, mark))
+					set.add(range, MutablePair(list, if (marks == null) 0 else marks[cell]))
 			}
 			set.optimize()
 			return set

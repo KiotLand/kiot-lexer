@@ -27,6 +27,7 @@ class Lexer(val dfa: DFA, val listener: (Int, Int) -> Unit) {
 		}
 	}
 
+	// not greedy
 	fun lex(chars: CharSequence) = lex(chars.iterator())
 	fun lex(chars: Iterator<Char>) {
 		if (!chars.hasNext()) return
@@ -36,6 +37,7 @@ class Lexer(val dfa: DFA, val listener: (Int, Int) -> Unit) {
 			if (index == -1) return
 			listener(x, index)
 			x = dfa.outsOf(x)[index]
+			if (dfa.isFinal(x)) x = dfa.beginCell
 		} while (chars.hasNext())
 	}
 }
