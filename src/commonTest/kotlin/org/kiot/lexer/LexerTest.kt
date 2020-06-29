@@ -6,6 +6,7 @@ import org.kiot.util.emptyIntList
 import org.kiot.util.intListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class LexerTest {
 	@Test
@@ -30,16 +31,37 @@ class LexerTest {
 		val blank = NFABuilder.from(' ')
 		val number = NFABuilder.from(CharClass.digit).oneOrMore()
 		val word = NFABuilder.from(CharClass.letter).oneOrMore()
-		Lexer.fromNFA(
+		val lexer = Lexer.fromNFA(
 			blank to 1,
 			number to 2,
 			word to 3
 		) {
 			list += it
-		}.lex("he is 16 years old")
-		assertEquals(
-			intListOf(3, 1, 3, 1, 2, 1, 3, 1, 3),
-			list
-		)
+		}
+		run {
+			list.clear()
+			lexer.lex("he is 16 years old")
+			assertEquals(
+				intListOf(3, 1, 3, 1, 2, 1, 3, 1, 3),
+				list
+			)
+		}
+		run {
+			list.clear()
+			lexer.lex("Ametus is cute 233 ")
+			assertEquals(
+				intListOf(3, 1, 3, 1, 3, 1, 2, 1),
+				list
+			)
+		}
+		run {
+			list.clear()
+			try {
+				lexer.lex("illegal!")
+			} catch (e: LexerMismatchException) {
+				assertEquals(7, e.startIndex)
+				assertEquals(7, e.endIndex)
+			}
+		}
 	}
 }

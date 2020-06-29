@@ -209,7 +209,7 @@ class CharClass(vararg val ranges: PlainCharRange) {
 	override fun hashCode(): Int = ranges.hashCode()
 
 	override fun toString(): String {
-		if (ranges.isEmpty()) return "{}"
+		if (ranges.isEmpty()) return ""
 		return buildString {
 			append(ranges[0])
 			for (i in 1 until ranges.size) append(", ").append(ranges[i])

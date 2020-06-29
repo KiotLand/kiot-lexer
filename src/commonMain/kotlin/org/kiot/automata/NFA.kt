@@ -40,6 +40,11 @@ class NFA(
 
 		fun from(chars: CharSequence) = NFABuilder.from(chars).build()
 		fun from(chars: Iterator<Char>) = NFABuilder.from(chars).build()
+
+		private fun mergeMark(x: Int, y: Int): Int {
+			require(x == 0 || y == 0) { "marks conflict" }
+			return x or y
+		}
 	}
 
 	fun link(from: Int, to: Int) {
@@ -62,23 +67,35 @@ class NFA(
 			outs.mapTo(mutableListOf()) { it.copy() }
 		).also { it.beginCell = beginCell }
 
-	private fun putInto(cellIndex: Int, list: CellList): Boolean {
-		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
+	private fun markedPutInto(cellIndex: Int, list: CellList, marks: IntArray): Int {
+		if (isFinal(cellIndex)) {
 			list.add(cellIndex)
-			return isFinal(cellIndex)
+			return 0
 		}
-		var ret = isFinal(cellIndex)
-		for (i in outs[cellIndex]) if (putInto(i, list)) ret = true
-		return ret
+		if (!isDummy(cellIndex)) {
+			list.add(cellIndex)
+			return marks[cellIndex]
+		}
+		var mark = marks[cellIndex]
+		for (i in outs[cellIndex]) {
+			mark = mergeMark(mark, markedPutInto(i, list, marks))
+		}
+		return mark
 	}
 
-	private fun transit(cellIndex: Int, char: Char, list: CellList): Boolean {
-		if (isFinal(cellIndex)) return false
+	private fun putInto(cellIndex: Int, list: CellList) {
+		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
+			list.add(cellIndex)
+			return
+		}
+		for (i in outs[cellIndex]) putInto(i, list)
+	}
+
+	private fun transit(cellIndex: Int, char: Char, list: CellList) {
+		if (isFinal(cellIndex)) return
 		// When the cell is dummy, its CharClass should be empty and this following check will be satisfied.
-		if (char !in charClasses[cellIndex]) return false
-		var ret = isFinal(cellIndex)
-		for (i in outs[cellIndex]) if (putInto(i, list)) ret = true
-		return ret
+		if (char !in charClasses[cellIndex]) return
+		for (i in outs[cellIndex]) putInto(i, list)
 	}
 
 	fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
@@ -186,22 +203,18 @@ class NFA(
 			if ((!exact) && hasFinal) return true
 			var listA = copy()
 			var listB = CellList(nfa)
-			var localHasFinal: Boolean
 			do {
 				val char = chars.next()
-				localHasFinal = false
 				for (cell in listA) {
-					if ((!localHasFinal) && nfa.transit(cell, char, listB)) {
-						localHasFinal = true
-						if (!exact) return true
-					}
+					nfa.transit(cell, char, listB)
+					if (listB.hasFinal && !exact) return true
 				}
 				val tmp = listA
 				listA = listB
 				listB = tmp
 				listB.clear()
 			} while (chars.hasNext())
-			return localHasFinal
+			return listA.hasFinal
 		}
 
 		override fun hashCode(): Int = bitset.hashCode() * 31 + (if (finalCount == 0) 0 else 1)
@@ -217,7 +230,7 @@ class NFA(
 			override fun next(): Int = list[index++]
 		}
 
-		internal fun transitionSet(marks: IntArray?): TransitionSet {
+		internal fun transitionSet(): TransitionSet {
 			val set = TransitionSet()
 			for (cell in this) {
 				if (nfa.isFinal(cell)) continue
@@ -225,7 +238,22 @@ class NFA(
 				val list = CellList(nfa)
 				for (out in nfa.outs[cell]) nfa.putInto(out, list)
 				for (range in ranges)
-					set.add(range, MutablePair(list, if (marks == null) 0 else marks[cell]))
+					set.add(range, MutablePair(list, 0))
+			}
+			set.optimize()
+			return set
+		}
+
+		internal fun transitionSet(marks: IntArray): TransitionSet {
+			val set = TransitionSet()
+			for (cell in this) {
+				if (nfa.isFinal(cell)) continue
+				val ranges = nfa.charClasses[cell].ranges
+				val list = CellList(nfa)
+				var mark = marks[cell]
+				for (out in nfa.outs[cell]) mark = mergeMark(mark, nfa.markedPutInto(out, list, marks))
+				for (range in ranges)
+					set.add(range, MutablePair(list, mark))
 			}
 			set.optimize()
 			return set
@@ -235,9 +263,8 @@ class NFA(
 			override fun copy(element: MutablePair<CellList, Int>) = MutablePair(element.first.copy(), element.second)
 
 			override fun MutablePair<CellList, Int>.append(other: MutablePair<CellList, Int>) {
-				if (second != 0 && other.second != 0) error("marks conflict")
+				second = mergeMark(second, other.second)
 				first.addAll(other.first.list)
-				if (second == 0) second = other.second
 			}
 		}
 	}
@@ -249,6 +276,7 @@ class NFA(
 	 */
 	fun toDFA(marks: IntArray?): Pair<DFA, List<IntList>?> {
 		require(marks == null || marks.size == size)
+
 		val charRanges = mutableListOf<MutableList<PlainCharRange>>()
 		val outs = mutableListOf<MutableList<Int>>()
 		val finalFlags = emptyBooleanList()
@@ -263,7 +291,7 @@ class NFA(
 				val index = charRanges.size
 				cellMap[list] = index
 				queue.push(index)
-				sets.add(list.transitionSet(marks))
+				sets.add(if (marks == null) list.transitionSet() else list.transitionSet(marks))
 				charRanges.add(mutableListOf())
 				outs.add(mutableListOf())
 				transitionMarks.add(emptyIntList())
