@@ -2,6 +2,8 @@ package org.kiot.util
 
 /**
  * Fixed-length multi-platform bitset.
+ *
+ * @author Mivik
  */
 class BitSet private constructor(private val length: Int, private val words: LongArray) {
 	companion object {

@@ -2,6 +2,8 @@ package org.kiot.util
 
 /**
  * A circular int queue that has a fixed size.
+ *
+ * @author Mivik
  */
 class CircularIntQueue(private val S: Int) {
 	private val elements = IntArray(S)

@@ -7,6 +7,8 @@ package org.kiot.util
  * and unwrapping in general [MutableList] obtained from [mutableListOf].
  *
  * Most of the code is copied from ArrayList in Java XD
+ *
+ * @author Mivik
  */
 abstract class PrimitiveList<T> : MutableList<T> {
 	companion object {

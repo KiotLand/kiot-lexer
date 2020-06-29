@@ -13,6 +13,8 @@ import org.kiot.util.intListOf
  * A -> A -> B -> (Final)
  *
  * In the NFA above, cell "B" is the end cell.
+ *
+ * @author Mivik
  */
 class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 	companion object {

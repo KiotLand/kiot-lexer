@@ -16,6 +16,8 @@ import org.kiot.util.emptyIntList
  *
  * @see DFA
  * @see Automata
+ *
+ * @author Mivik
  */
 class NFA(
 	/**

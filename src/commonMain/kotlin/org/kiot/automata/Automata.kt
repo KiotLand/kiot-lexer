@@ -5,6 +5,8 @@ package org.kiot.automata
  *
  * Note: In the whole project, the term of "state" in automata theory is
  *       represented as "cell".
+ *
+ * @author Mivik
  */
 abstract class Automata {
 	/**

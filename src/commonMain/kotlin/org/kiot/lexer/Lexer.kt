@@ -2,7 +2,6 @@ package org.kiot.lexer
 
 import org.kiot.automata.DFA
 import org.kiot.automata.NFABuilder
-import org.kiot.util.emptyIntList
 
 class Lexer private constructor(val dfa: DFA, val listener: (Int, Int) -> Unit) {
 	companion object {

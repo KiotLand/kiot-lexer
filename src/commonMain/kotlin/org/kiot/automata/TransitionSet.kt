@@ -2,6 +2,12 @@ package org.kiot.automata
 
 import org.kiot.util.contentEquals
 
+/**
+ * An abstract class that supports mapping [T] by [PlainCharRange] and
+ * merge [T] when ranges overlap.
+ *
+ * @author Mivik
+ */
 internal abstract class TransitionSet<T : Any> : Iterable<Pair<PlainCharRange, T>> {
 	val ranges = mutableListOf<PlainCharRange>()
 	val targets = mutableListOf<T?>() // null means a placeholder

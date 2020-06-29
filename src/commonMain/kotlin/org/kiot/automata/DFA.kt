@@ -18,6 +18,8 @@ import org.kiot.util.swap
  *
  * @see NFA
  * @see Automata
+ *
+ * @author Mivik
  */
 class DFA internal constructor(
 	/**

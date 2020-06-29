@@ -6,7 +6,6 @@ import org.kiot.util.emptyIntList
 import org.kiot.util.intListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class LexerTest {
 	@Test

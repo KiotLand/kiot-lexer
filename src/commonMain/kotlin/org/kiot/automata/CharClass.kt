@@ -13,6 +13,8 @@ package org.kiot.automata
  *
  * @see CharClass
  * @see plainTo
+ *
+ * @author Mivik
  */
 data class PlainCharRange(val start: Char, val end: Char) {
 	companion object {
@@ -52,6 +54,8 @@ fun CharRange.plain() = PlainCharRange(start, endInclusive)
  * while [PlainCharRange] can only represent a continuous char range.
  *
  * @see PlainCharRange
+ *
+ * @author Mivik
  */
 class CharClass(vararg val ranges: PlainCharRange) {
 	companion object {
