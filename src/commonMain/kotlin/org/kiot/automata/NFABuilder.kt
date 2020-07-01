@@ -30,7 +30,7 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 
 		fun from(chars: CharSequence) = from(chars.iterator())
 		fun from(chars: Iterator<Char>): NFABuilder {
-			require(chars.hasNext())
+			require(chars.hasNext()) { "Chars can not be empty" }
 			return NFABuilder().append(chars)
 		}
 	}
@@ -237,7 +237,7 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 	}
 
 	fun repeat(start: Int, endInclusive: Int): NFABuilder {
-		require(start in 0..endInclusive)
+		require(start in 0..endInclusive) { "Illegal repeating range" }
 		/*
 		                                  |-------------------------------------------------------|
 		                                  |                                                       √

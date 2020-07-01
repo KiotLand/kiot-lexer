@@ -1,6 +1,7 @@
 package org.kiot.lexer
 
 import org.kiot.automata.CharClass
+import org.kiot.automata.NFA
 import org.kiot.automata.NFABuilder
 import org.kiot.util.emptyIntList
 import org.kiot.util.intListOf
@@ -12,11 +13,11 @@ class LexerTest {
 	@Test
 	fun test() {
 		val list = emptyIntList()
-		Lexer.fromNFA(
-			NFABuilder.from(CharClass.letter) to { _ -> list.add(1) },
-			NFABuilder.from(CharClass.digit) to { _ -> list.add(2) },
-			NFABuilder.from(' ') to { _ -> list.add(3) }
-		).lex(" a1ba")
+		Lexer.simple {
+			NFABuilder.from(CharClass.letter) then { list.add(1) }
+			NFABuilder.from(CharClass.digit) then { list.add(2) }
+			NFABuilder.from(' ') then { list.add(3) }
+		}.lex(" a1ba")
 		assertEquals(
 			intListOf(3, 1, 2, 1, 1),
 			list
@@ -26,11 +27,11 @@ class LexerTest {
 	@Test
 	fun test2() {
 		val list = emptyIntList()
-		val lexer = Lexer.fromNFA(
-			NFABuilder.from(' ') to { _ -> list.add(1) },
-			NFABuilder.from(CharClass.digit).oneOrMore() to { _ -> list.add(2) },
-			NFABuilder.from(CharClass.letter).oneOrMore() to { _ -> list.add(3) }
-		)
+		val lexer = Lexer.simple {
+			NFABuilder.from(' ') then { list.add(1) }
+			NFABuilder.from(CharClass.digit).oneOrMore() then { list.add(2) }
+			NFABuilder.from(CharClass.letter).oneOrMore() then { list.add(3) }
+		}
 		run {
 			list.clear()
 			lexer.lex("he is 16 years old")
@@ -61,10 +62,10 @@ class LexerTest {
 	@Test
 	fun testString() {
 		val list = mutableListOf<String>()
-		val lexer = Lexer.fromNFA(
-			NFABuilder.from(' ') to { _ -> },
-			NFABuilder.from(CharClass.letter).oneOrMore() to { s -> list.add(s.string()) }
-		)
+		val lexer = Lexer.simple {
+			NFABuilder.from(' ') then null
+			NFABuilder.from(CharClass.letter).oneOrMore() then { list.add(string()) }
+		}
 		lexer.lex("one two three")
 		assertEquals(
 			mutableListOf("one", "two", "three"),
@@ -75,16 +76,41 @@ class LexerTest {
 	@Test
 	fun testConflict() {
 		assertFails {
-			Lexer.fromNFA(
-				NFABuilder.from(CharClass.digit) to { _ -> },
-				NFABuilder.from(CharClass.any) to { _ -> }
-			)
+			Lexer.simple {
+				NFABuilder.from(CharClass.digit) then {}
+				NFABuilder.from(CharClass.any) then {}
+			}
 		}
 		assertFails {
-			Lexer.fromNFA(
-				NFABuilder.from("hello") to { _ -> },
-				NFABuilder.from(CharClass.letter).oneOrMore() to { _ -> }
-			)
+			Lexer.simple {
+				NFABuilder.from("hello") then {}
+				NFABuilder.from(CharClass.letter).oneOrMore() then {}
+			}
+		}
+	}
+
+	@Test
+	fun testNormal() {
+		var name = ""
+		var definition = ""
+		val lexer = Lexer.build {
+			state(default) {
+				NFABuilder.from(": ") then { switchState(1) }
+				NFABuilder.from(CharClass.letter).oneOrMore() then { name = string() }
+			}
+			state(1) {
+				NFABuilder.from(CharClass.any).oneOrMore() then { definition = string() }
+			}
+		}
+		run {
+			lexer.lex("apple: a kind of fruit")
+			assertEquals(name, "apple")
+			assertEquals(definition, "a kind of fruit")
+		}
+		run {
+			lexer.lex("shocking: !!!")
+			assertEquals(name, "shocking")
+			assertEquals(definition, "!!!")
 		}
 	}
 }

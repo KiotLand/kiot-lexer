@@ -44,7 +44,7 @@ class NFA(
 		fun from(chars: Iterator<Char>) = NFABuilder.from(chars).build()
 
 		private fun <T> mergeMark(a: T?, b: T?): T? {
-			require(a == null || b == null) { "marks conflict" }
+			require(a == null || b == null) { "Marks conflict" }
 			return a ?: b
 		}
 	}
