@@ -20,3 +20,8 @@ abstract class Automata {
 
 	abstract fun isFinal(cellIndex: Int): Boolean
 }
+
+internal fun <T> mergeMark(a: T?, b: T?): T? {
+	require(a == null || b == null) { "Marks conflict" }
+	return a ?: b
+}

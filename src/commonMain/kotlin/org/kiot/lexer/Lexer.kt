@@ -25,7 +25,7 @@ class MarkedDFABuilder<T : LexerData> {
 		pairs.add(Pair(this, listener))
 	}
 
-	fun build(): MarkedDFA<T> {
+	fun build(minimize: Boolean): MarkedDFA<T> {
 		require(pairs.isNotEmpty()) { "DFA used for lexer can not be empty" }
 		val builder = NFABuilder()
 		val nfa = builder.nfa
@@ -41,14 +41,19 @@ class MarkedDFABuilder<T : LexerData> {
 			marks[builder.endCell] = pair.second
 		}
 		builder.makeEnd(newEnd)
-		val (dfa, newMarks) = builder.build().toDFA(marks.asList())
+		var (dfa, newMarks) = builder.build().toDFA(marks.asList())
+		if (minimize) {
+			val pair = dfa.minimize(newMarks)
+			dfa = pair.first
+			newMarks = pair.second
+		}
 		newMarks!!
 		require(!dfa.isFinal(dfa.beginCell)) { "The DFA built from NFA can match empty string, which is not permitted." }
 		return MarkedDFA(dfa, newMarks)
 	}
 }
 
-class LexerBuilder<T : LexerData> {
+class LexerBuilder<T : LexerData>(private val minimize: Boolean) {
 	private val markedDFAs = nullableListOf<MarkedDFA<T>>()
 
 	val default: Int
@@ -58,7 +63,7 @@ class LexerBuilder<T : LexerData> {
 
 	fun state(stateIndex: Int, block: MarkedDFABuilder<T>.() -> Unit) {
 		markedDFAs.resize(stateIndex + 1)
-		markedDFAs[stateIndex] = MarkedDFABuilder<T>().apply(block).build()
+		markedDFAs[stateIndex] = MarkedDFABuilder<T>().apply(block).build(minimize)
 	}
 
 	fun build(dataGenerator: () -> T) = Lexer(markedDFAs, dataGenerator)
@@ -66,23 +71,31 @@ class LexerBuilder<T : LexerData> {
 
 class Lexer<T : LexerData>(val dfaList: List<MarkedDFA<T>?>, val dataGenerator: () -> T) {
 	companion object {
-		inline fun simple(block: MarkedDFABuilder<EmptyLexerData>.() -> Unit): Lexer<EmptyLexerData> =
-			Lexer(listOf(MarkedDFABuilder<EmptyLexerData>().apply(block).build())) { EmptyLexerData }
+		inline fun simple(
+			minimize: Boolean = false,
+			block: MarkedDFABuilder<EmptyLexerData>.() -> Unit
+		): Lexer<EmptyLexerData> =
+			Lexer(listOf(MarkedDFABuilder<EmptyLexerData>().apply(block).build(minimize))) { EmptyLexerData }
 
-		inline fun build(block: LexerBuilder<EmptyLexerData>.() -> Unit): Lexer<EmptyLexerData> =
-			LexerBuilder<EmptyLexerData>().apply(block).build() { EmptyLexerData }
+		inline fun build(
+			minimize: Boolean = false,
+			block: LexerBuilder<EmptyLexerData>.() -> Unit
+		): Lexer<EmptyLexerData> =
+			LexerBuilder<EmptyLexerData>(minimize).apply(block).build() { EmptyLexerData }
 
 		inline fun <T : LexerData> simpleWithData(
 			noinline dataGenerator: () -> T,
+			minimize: Boolean = false,
 			block: MarkedDFABuilder<T>.() -> Unit
 		): Lexer<T> =
-			Lexer(listOf(MarkedDFABuilder<T>().apply(block).build()), dataGenerator)
+			Lexer(listOf(MarkedDFABuilder<T>().apply(block).build(minimize)), dataGenerator)
 
 		inline fun <T : LexerData> buildWithData(
 			noinline dataGenerator: () -> T,
+			minimize: Boolean = false,
 			block: LexerBuilder<T>.() -> Unit
 		): Lexer<T> =
-			LexerBuilder<T>().apply(block).build(dataGenerator)
+			LexerBuilder<T>(minimize).apply(block).build(dataGenerator)
 	}
 
 	init {

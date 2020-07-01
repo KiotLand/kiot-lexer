@@ -42,11 +42,6 @@ class NFA(
 
 		fun from(chars: CharSequence) = NFABuilder.from(chars).build()
 		fun from(chars: Iterator<Char>) = NFABuilder.from(chars).build()
-
-		private fun <T> mergeMark(a: T?, b: T?): T? {
-			require(a == null || b == null) { "Marks conflict" }
-			return a ?: b
-		}
 	}
 
 	fun link(from: Int, to: Int) {

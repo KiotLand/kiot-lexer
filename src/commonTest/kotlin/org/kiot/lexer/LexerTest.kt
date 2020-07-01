@@ -93,7 +93,7 @@ class LexerTest {
 	fun testNormal() {
 		data class Word(var name: String, var definition: String) : LexerData
 
-		val lexer = Lexer.buildWithData({ Word("", "") }) {
+		val lexer = Lexer.buildWithData({ Word("", "") }, minimize = true) {
 			state(default) {
 				NFABuilder.from(": ") then { switchState(1) }
 				NFABuilder.from(CharClass.letter).oneOrMore() then { data.name = string() }

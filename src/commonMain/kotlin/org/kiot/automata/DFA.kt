@@ -2,8 +2,10 @@ package org.kiot.automata
 
 import org.kiot.util.BitSet
 import org.kiot.util.IntList
+import org.kiot.util.NullableList
 import org.kiot.util.emptyIntList
 import org.kiot.util.intListOf
+import org.kiot.util.nullableListOf
 import org.kiot.util.swap
 
 /**
@@ -96,7 +98,9 @@ class DFA internal constructor(
 		}
 	}
 
-	fun minimize(): DFA {
+	fun minimize() = minimize<Any>(null).first
+
+	fun <T : Any> minimize(marks: List<List<T?>>?): Pair<DFA, List<List<T?>>?> {
 		var current = mutableListOf<IntList>()
 		val group = emptyIntList()
 		fun transitionSet(cellIndex: Int): TransitionSet {
@@ -146,7 +150,7 @@ class DFA internal constructor(
 		}
 
 		val newSize = current.size
-		if (newSize == size) return this // DFAs are immutable, so just return it!
+		if (newSize == size) return Pair(this, marks) // DFAs are immutable, so just return it!
 
 		// Make the begin cell stay in the first place.
 		val beginIndex = group[beginCell]
@@ -162,23 +166,34 @@ class DFA internal constructor(
 		val newCharRanges = mutableListOf<List<PlainCharRange>>()
 		val newOuts = mutableListOf<List<Int>>()
 		val newFinalFlags = BitSet(newSize)
+		val newMarks = if (marks == null) null else mutableListOf<List<T?>>()
 		for (i in 0 until newSize) {
 			val myRanges = mutableListOf<PlainCharRange>()
 			val myOuts = emptyIntList()
+			if (marks != null) {
+				val myMarks = NullableList<T>(current[i].first())
+				for (j in current[i].indices) {
+					val cell = current[i][j]
+					val tmp = marks[cell]
+					require(charRanges[cell].size == tmp.size)
+					for (k in tmp.indices) myMarks[k] = mergeMark(myMarks[k], tmp[k])
+				}
+				newMarks!!.add(myMarks)
+			}
 			current[i].first().let {
-				val charClass = CharClass.fromSorted(charRanges[it]) // merge them!
-				myRanges.addAll(charClass.ranges)
+				val ranges = charRanges[it]
+				val tmp = outsOf(it)
+				myRanges.addAll(ranges)
 				// all its outs should belong in the same group
-				val out = group[outsOf(it)[0]]
-				for (range in charClass.ranges) {
-					myRanges += range
-					myOuts += out
+				for (j in ranges.indices) {
+					myRanges += ranges[j]
+					myOuts += group[tmp[j]]
 				}
 			}
 			newCharRanges += myRanges
 			newOuts += myOuts
 			newFinalFlags[i] = current[i].any { isFinal(it) }
 		}
-		return DFA(newCharRanges, newOuts, newFinalFlags)
+		return Pair(DFA(newCharRanges, newOuts, newFinalFlags), newMarks)
 	}
 }
