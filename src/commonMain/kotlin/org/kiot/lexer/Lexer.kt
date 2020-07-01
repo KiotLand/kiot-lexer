@@ -4,24 +4,28 @@ import org.kiot.automata.DFA
 import org.kiot.automata.NFABuilder
 import org.kiot.util.nullableListOf
 
-interface KiotState {
+interface LexerState {
 	val ordinal: Int
 }
 
-class MarkedDFA(val dfa: DFA, private val marks: List<List<(Lexer.Session.() -> Unit)?>>) {
-	fun transit(session: Lexer.Session, cellIndex: Int, transitIndex: Int) {
+interface LexerData
+
+object EmptyLexerData : LexerData
+
+class MarkedDFA<T : LexerData>(val dfa: DFA, private val marks: List<List<(Lexer.Session<T>.() -> Unit)?>>) {
+	fun transit(session: Lexer.Session<T>, cellIndex: Int, transitIndex: Int) {
 		marks[cellIndex][transitIndex]?.invoke(session)
 	}
 }
 
-class MarkedDFABuilder {
-	private val pairs = mutableListOf<Pair<NFABuilder, (Lexer.Session.() -> Unit)?>>()
+class MarkedDFABuilder<T : LexerData> {
+	private val pairs = mutableListOf<Pair<NFABuilder, (Lexer.Session<T>.() -> Unit)?>>()
 
-	infix fun NFABuilder.then(listener: (Lexer.Session.() -> Unit)?) {
+	infix fun NFABuilder.then(listener: (Lexer.Session<T>.() -> Unit)?) {
 		pairs.add(Pair(this, listener))
 	}
 
-	fun build(): MarkedDFA {
+	fun build(): MarkedDFA<T> {
 		require(pairs.isNotEmpty()) { "DFA used for lexer can not be empty" }
 		val builder = NFABuilder()
 		val nfa = builder.nfa
@@ -29,7 +33,7 @@ class MarkedDFABuilder {
 		builder.extend(newBegin)
 		val beginOuts = nfa.outsOf(newBegin)
 		val newEnd = nfa.appendDummyCell()
-		val marks = arrayOfNulls<Lexer.Session.() -> Unit>(pairs.sumBy { it.first.size } + 2)
+		val marks = arrayOfNulls<Lexer.Session<T>.() -> Unit>(pairs.sumBy { it.first.size } + 2)
 		for (pair in pairs) {
 			beginOuts += pair.first.beginCell + nfa.size
 			builder.include(pair.first)
@@ -44,28 +48,41 @@ class MarkedDFABuilder {
 	}
 }
 
-class LexerBuilder {
-	private val markedDFAs = nullableListOf<MarkedDFA>()
+class LexerBuilder<T : LexerData> {
+	private val markedDFAs = nullableListOf<MarkedDFA<T>>()
 
 	val default: Int
 		get() = 0
 
-	fun state(state: KiotState, block: MarkedDFABuilder.() -> Unit) = state(state.ordinal + 1, block)
+	fun state(state: LexerState, block: MarkedDFABuilder<T>.() -> Unit) = state(state.ordinal + 1, block)
 
-	fun state(stateIndex: Int, block: MarkedDFABuilder.() -> Unit) {
+	fun state(stateIndex: Int, block: MarkedDFABuilder<T>.() -> Unit) {
 		markedDFAs.resize(stateIndex + 1)
-		markedDFAs[stateIndex] = MarkedDFABuilder().apply(block).build()
+		markedDFAs[stateIndex] = MarkedDFABuilder<T>().apply(block).build()
 	}
 
-	fun build() = Lexer(markedDFAs)
+	fun build(dataGenerator: () -> T) = Lexer(markedDFAs, dataGenerator)
 }
 
-class Lexer(val dfaList: List<MarkedDFA?>) {
+class Lexer<T : LexerData>(val dfaList: List<MarkedDFA<T>?>, val dataGenerator: () -> T) {
 	companion object {
-		inline fun simple(block: MarkedDFABuilder.() -> Unit): Lexer =
-			Lexer(listOf(MarkedDFABuilder().apply(block).build()))
+		inline fun simple(block: MarkedDFABuilder<EmptyLexerData>.() -> Unit): Lexer<EmptyLexerData> =
+			Lexer(listOf(MarkedDFABuilder<EmptyLexerData>().apply(block).build())) { EmptyLexerData }
 
-		inline fun build(block: LexerBuilder.() -> Unit): Lexer = LexerBuilder().apply(block).build()
+		inline fun build(block: LexerBuilder<EmptyLexerData>.() -> Unit): Lexer<EmptyLexerData> =
+			LexerBuilder<EmptyLexerData>().apply(block).build() { EmptyLexerData }
+
+		inline fun <T : LexerData> simpleWithData(
+			noinline dataGenerator: () -> T,
+			block: MarkedDFABuilder<T>.() -> Unit
+		): Lexer<T> =
+			Lexer(listOf(MarkedDFABuilder<T>().apply(block).build()), dataGenerator)
+
+		inline fun <T : LexerData> buildWithData(
+			noinline dataGenerator: () -> T,
+			block: LexerBuilder<T>.() -> Unit
+		): Lexer<T> =
+			LexerBuilder<T>().apply(block).build(dataGenerator)
 	}
 
 	init {
@@ -73,16 +90,16 @@ class Lexer(val dfaList: List<MarkedDFA?>) {
 		require(dfaList[0] != null) { "The DFA for initial state mustn't be null" }
 	}
 
-	fun lex(chars: CharSequence) = Session(this, chars).lex()
+	fun lex(chars: CharSequence): T = Session(this, chars, dataGenerator()).apply { lex() }.data
 
-	class Session(private val lexer: Lexer, private val chars: CharSequence) {
+	class Session<T : LexerData>(private val lexer: Lexer<T>, private val chars: CharSequence, val data: T) {
 		private var lastMatch = 0
 		private var currentDFA = lexer.dfaList[0]!!
 		private var i = 0
 
 		fun string() = chars.substring(lastMatch, i)
 
-		fun switchState(state: KiotState) = switchState(state.ordinal + 1)
+		fun switchState(state: LexerState) = switchState(state.ordinal + 1)
 		fun switchState(stateIndex: Int) {
 			lexer.dfaList[stateIndex]!!.let {
 				if (it == currentDFA) return // mark here

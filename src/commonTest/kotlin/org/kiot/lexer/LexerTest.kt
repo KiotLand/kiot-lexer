@@ -91,26 +91,28 @@ class LexerTest {
 
 	@Test
 	fun testNormal() {
-		var name = ""
-		var definition = ""
-		val lexer = Lexer.build {
+		data class Word(var name: String, var definition: String) : LexerData
+
+		val lexer = Lexer.buildWithData({ Word("", "") }) {
 			state(default) {
 				NFABuilder.from(": ") then { switchState(1) }
-				NFABuilder.from(CharClass.letter).oneOrMore() then { name = string() }
+				NFABuilder.from(CharClass.letter).oneOrMore() then { data.name = string() }
 			}
 			state(1) {
-				NFABuilder.from(CharClass.any).oneOrMore() then { definition = string() }
+				NFABuilder.from(CharClass.any).oneOrMore() then { data.definition = string() }
 			}
 		}
 		run {
-			lexer.lex("apple: a kind of fruit")
-			assertEquals(name, "apple")
-			assertEquals(definition, "a kind of fruit")
+			assertEquals(
+				lexer.lex("apple: a kind of fruit"),
+				Word("apple", "a kind of fruit")
+			)
 		}
 		run {
-			lexer.lex("shocking: !!!")
-			assertEquals(name, "shocking")
-			assertEquals(definition, "!!!")
+			assertEquals(
+				lexer.lex("shocking: !!!"),
+				Word("shocking", "!!!")
+			)
 		}
 	}
 }
