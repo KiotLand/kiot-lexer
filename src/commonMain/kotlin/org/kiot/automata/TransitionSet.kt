@@ -19,7 +19,7 @@ internal abstract class TransitionSet<T : Any> : Iterable<Pair<PlainCharRange, T
 	}
 
 	abstract fun copy(element: T): T
-	abstract fun T.append(other: T)
+	abstract fun T.merge(other: T)
 
 	val size: Int
 		get() = ranges.size
@@ -51,7 +51,7 @@ internal abstract class TransitionSet<T : Any> : Iterable<Pair<PlainCharRange, T
 			targets[i] = targets[i].run {
 				if (this == null) copy(target)
 				else {
-					append(target)
+					merge(target)
 					this
 				}
 			}

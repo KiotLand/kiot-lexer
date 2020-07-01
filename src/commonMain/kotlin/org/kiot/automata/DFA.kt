@@ -91,7 +91,7 @@ class DFA internal constructor(
 	internal class TransitionSet : org.kiot.automata.TransitionSet<IntList>() {
 		override fun copy(element: IntList): IntList = element.copy()
 
-		override fun IntList.append(other: IntList) {
+		override fun IntList.merge(other: IntList) {
 			addAll(other)
 		}
 	}

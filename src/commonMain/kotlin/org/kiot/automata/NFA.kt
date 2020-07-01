@@ -43,9 +43,9 @@ class NFA(
 		fun from(chars: CharSequence) = NFABuilder.from(chars).build()
 		fun from(chars: Iterator<Char>) = NFABuilder.from(chars).build()
 
-		private fun mergeMark(x: Int, y: Int): Int {
-			require(x == 0 || y == 0) { "marks conflict" }
-			return x or y
+		private fun <T> mergeMark(a: T?, b: T?): T? {
+			require(a == null || b == null) { "marks conflict" }
+			return a ?: b
 		}
 	}
 
@@ -69,19 +69,17 @@ class NFA(
 			outs.mapTo(mutableListOf()) { it.copy() }
 		).also { it.beginCell = beginCell }
 
-	private fun markedPutInto(cellIndex: Int, list: CellList, marks: IntArray): Int {
+	private fun <T> markedPutInto(cellIndex: Int, list: CellList, marks: List<T?>): T? {
 		if (isFinal(cellIndex)) {
 			list.add(cellIndex)
-			return 0
+			return null
 		}
 		if (!isDummy(cellIndex)) {
 			list.add(cellIndex)
 			return marks[cellIndex]
 		}
 		var mark = marks[cellIndex]
-		for (i in outs[cellIndex]) {
-			mark = mergeMark(mark, markedPutInto(i, list, marks))
-		}
+		for (i in outs[cellIndex]) mark = mergeMark(mark, markedPutInto(i, list, marks))
 		return mark
 	}
 
@@ -232,22 +230,22 @@ class NFA(
 			override fun next(): Int = list[index++]
 		}
 
-		internal fun transitionSet(): TransitionSet {
-			val set = TransitionSet()
+		internal fun <T> transitionSet(): TransitionSet<T> {
+			val set = TransitionSet<T>()
 			for (cell in this) {
 				if (nfa.isFinal(cell)) continue
 				val ranges = nfa.charClasses[cell].ranges
 				val list = CellList(nfa)
 				for (out in nfa.outs[cell]) nfa.putInto(out, list)
 				for (range in ranges)
-					set.add(range, MutablePair(list, 0))
+					set.add(range, MutablePair(list, null))
 			}
 			set.optimize()
 			return set
 		}
 
-		internal fun transitionSet(marks: IntArray): TransitionSet {
-			val set = TransitionSet()
+		internal fun <T> transitionSet(marks: List<T?>): TransitionSet<T> {
+			val set = TransitionSet<T>()
 			for (cell in this) {
 				if (nfa.isFinal(cell)) continue
 				val ranges = nfa.charClasses[cell].ranges
@@ -261,22 +259,24 @@ class NFA(
 			return set
 		}
 
-		internal class TransitionSet : org.kiot.automata.TransitionSet<MutablePair<CellList, Int>>() {
-			override fun copy(element: MutablePair<CellList, Int>) = MutablePair(element.first.copy(), element.second)
+		internal class TransitionSet<T> :
+			org.kiot.automata.TransitionSet<MutablePair<CellList, T?>>() {
+			override fun copy(element: MutablePair<CellList, T?>) =
+				MutablePair(element.first.copy(), element.second)
 
-			override fun MutablePair<CellList, Int>.append(other: MutablePair<CellList, Int>) {
+			override fun MutablePair<CellList, T?>.merge(other: MutablePair<CellList, T?>) {
 				second = mergeMark(second, other.second)
 				first.addAll(other.first.list)
 			}
 		}
 	}
 
-	fun toDFA(): DFA = toDFA(null).first
+	fun toDFA(): DFA = toDFA<Any>(null).first
 
 	/**
 	 * Convert a NFA into DFA using Subset Construction.
 	 */
-	fun toDFA(marks: IntArray?): Pair<DFA, List<IntList>?> {
+	fun <T> toDFA(marks: List<T?>?): Pair<DFA, List<List<T?>>?> {
 		require(marks == null || marks.size == size)
 
 		val charRanges = mutableListOf<MutableList<PlainCharRange>>()
@@ -286,8 +286,8 @@ class NFA(
 
 		// TODO maybe use mutableMapOf(LinkedHashMap) here?
 		val cellMap = hashMapOf<CellList, Int>()
-		val sets = mutableListOf<CellList.TransitionSet>()
-		val transitionMarks = mutableListOf<IntList>()
+		val sets = mutableListOf<CellList.TransitionSet<T>>()
+		val transitionMarks = if (marks == null) null else mutableListOf<MutableList<T?>>()
 		fun indexOf(list: CellList): Int =
 			cellMap[list] ?: run {
 				val index = charRanges.size
@@ -296,7 +296,7 @@ class NFA(
 				sets.add(if (marks == null) list.transitionSet() else list.transitionSet(marks))
 				charRanges.add(mutableListOf())
 				outs.add(mutableListOf())
-				transitionMarks.add(emptyIntList())
+				transitionMarks?.add(mutableListOf())
 				finalFlags += list.hasFinal
 				index
 			}
@@ -310,11 +310,11 @@ class NFA(
 			val set = sets[x]
 			val myCharRanges = charRanges[x]
 			val myOuts = outs[x]
-			val newMarks = transitionMarks[x]
+			val newMarks = transitionMarks?.get(x)
 			for (pair in set) {
 				myCharRanges.add(pair.first)
 				myOuts.add(indexOf(pair.second.first))
-				newMarks.add(pair.second.second)
+				newMarks?.add(pair.second.second)
 			}
 		}
 		return Pair(
