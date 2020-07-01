@@ -184,7 +184,6 @@ class DFA internal constructor(
 				val ranges = charRanges[it]
 				val tmp = outsOf(it)
 				myRanges.addAll(ranges)
-				// all its outs should belong in the same group
 				for (j in ranges.indices) {
 					myRanges += ranges[j]
 					myOuts += group[tmp[j]]
