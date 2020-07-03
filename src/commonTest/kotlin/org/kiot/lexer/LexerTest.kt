@@ -90,7 +90,7 @@ class LexerTest {
 
 	@Test
 	fun testNormal() {
-		data class Word(var name: String, var definition: String) : LexerData
+		data class Word(var name: String, var definition: String)
 
 		val lexer = Lexer.buildWithData({ Word("", "") }, minimize = true) {
 			state(default) {
@@ -101,17 +101,41 @@ class LexerTest {
 				NFABuilder.from(CharClass.any).oneOrMore() then { data.definition = string() }
 			}
 		}
-		run {
-			assertEquals(
-				lexer.lex("apple: a kind of fruit"),
-				Word("apple", "a kind of fruit")
-			)
+		assertEquals(
+			lexer.lex("apple: a kind of fruit"),
+			Word("apple", "a kind of fruit")
+		)
+		assertEquals(
+			lexer.lex("shocking: !!!"),
+			Word("shocking", "!!!")
+		)
+	}
+
+	@Test
+	fun testRegExp() {
+		data class Data(
+			val identifiers: MutableList<String> = mutableListOf(),
+			val strings: MutableList<String> = mutableListOf()
+		)
+
+		val lexer = Lexer.buildWithData({ Data() }, minimize = true) {
+			state(default) {
+				"[^\" ]+" then { data.identifiers += string() }
+				" " then null
+				"\"" then { switchState(1) }
+			}
+			state(1) {
+				"[^\"]+" then { data.strings += string() }
+				"\"" then { switchState(default) }
+			}
 		}
-		run {
-			assertEquals(
-				lexer.lex("shocking: !!!"),
-				Word("shocking", "!!!")
-			)
-		}
+		assertEquals(
+			lexer.lex("hello \"world\""),
+			Data(mutableListOf("hello"), mutableListOf("world"))
+		)
+		assertEquals(
+			lexer.lex("first \"apple\" second \"peach\""),
+			Data(mutableListOf("first", "second"), mutableListOf("apple", "peach"))
+		)
 	}
 }

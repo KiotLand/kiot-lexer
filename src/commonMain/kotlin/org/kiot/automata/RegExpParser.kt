@@ -113,9 +113,9 @@ class RegExpParser(chars: CharSequence) {
 		readChars.sort()
 		if (readChars.isNotEmpty()) {
 			var tot = 1
-			for (i in 1 until readChars.size) if (readChars[i] != readChars[tot]) readChars[tot++] = readChars[i]
+			for (i in 1 until readChars.size) if (readChars[i] != readChars[tot - 1]) readChars[tot++] = readChars[i]
 			readChars.resize(tot)
-			ret = ret.merge(CharClass.fromSorted(*readChars.toCharArray()))
+			ret = ret.merge(CharClass.from(*readChars.toCharArray()))
 		}
 		return if (inverse) ret.inverse() else ret
 	}

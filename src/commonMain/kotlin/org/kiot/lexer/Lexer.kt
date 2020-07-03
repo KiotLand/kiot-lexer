@@ -8,26 +8,29 @@ interface LexerState {
 	val ordinal: Int
 }
 
-interface LexerData
-
-object EmptyLexerData : LexerData
+object EmptyLexerData
 
 class LexerMismatchException(val startIndex: Int, val endIndex: Int) : RuntimeException() {
 	override val message: String?
 		get() = "Mismatch in [$startIndex, $endIndex]"
 }
 
-class MarkedDFA<T : LexerData>(val dfa: DFA, private val marks: List<List<(Lexer.Session<T>.() -> Unit)?>>) {
+class MarkedDFA<T>(val dfa: DFA, private val marks: List<List<(Lexer.Session<T>.() -> Unit)?>>) {
 	fun transit(session: Lexer.Session<T>, cellIndex: Int, transitIndex: Int) {
 		marks[cellIndex][transitIndex]?.invoke(session)
 	}
 }
 
-class MarkedDFABuilder<T : LexerData> {
+class MarkedDFABuilder<T> {
 	private val pairs = mutableListOf<Pair<NFABuilder, (Lexer.Session<T>.() -> Unit)?>>()
 
 	infix fun NFABuilder.then(listener: (Lexer.Session<T>.() -> Unit)?) {
 		pairs.add(Pair(this, listener))
+	}
+
+	// RegExp
+	infix fun String.then(listener: (Lexer.Session<T>.() -> Unit)?) {
+		pairs.add(Pair(NFABuilder.fromRegExp(this), listener))
 	}
 
 	fun build(minimize: Boolean): MarkedDFA<T> {
@@ -58,7 +61,7 @@ class MarkedDFABuilder<T : LexerData> {
 	}
 }
 
-class LexerBuilder<T : LexerData>(private val minimize: Boolean) {
+class LexerBuilder<T>(private val minimize: Boolean) {
 	private val markedDFAs = nullableListOf<MarkedDFA<T>>()
 
 	val default: Int
@@ -74,7 +77,7 @@ class LexerBuilder<T : LexerData>(private val minimize: Boolean) {
 	fun build(dataGenerator: () -> T) = Lexer(markedDFAs, dataGenerator)
 }
 
-class Lexer<T : LexerData>(val dfaList: List<MarkedDFA<T>?>, val dataGenerator: () -> T) {
+class Lexer<T>(val dfaList: List<MarkedDFA<T>?>, val dataGenerator: () -> T) {
 	companion object {
 		inline fun simple(
 			minimize: Boolean = false,
@@ -88,14 +91,14 @@ class Lexer<T : LexerData>(val dfaList: List<MarkedDFA<T>?>, val dataGenerator: 
 		): Lexer<EmptyLexerData> =
 			LexerBuilder<EmptyLexerData>(minimize).apply(block).build() { EmptyLexerData }
 
-		inline fun <T : LexerData> simpleWithData(
+		inline fun <T> simpleWithData(
 			noinline dataGenerator: () -> T,
 			minimize: Boolean = false,
 			block: MarkedDFABuilder<T>.() -> Unit
 		): Lexer<T> =
 			Lexer(listOf(MarkedDFABuilder<T>().apply(block).build(minimize)), dataGenerator)
 
-		inline fun <T : LexerData> buildWithData(
+		inline fun <T> buildWithData(
 			noinline dataGenerator: () -> T,
 			minimize: Boolean = false,
 			block: LexerBuilder<T>.() -> Unit
@@ -110,7 +113,7 @@ class Lexer<T : LexerData>(val dfaList: List<MarkedDFA<T>?>, val dataGenerator: 
 
 	fun lex(chars: CharSequence): T = Session(this, chars, dataGenerator()).apply { lex() }.data
 
-	class Session<T : LexerData>(private val lexer: Lexer<T>, private val chars: CharSequence, val data: T) {
+	class Session<T>(private val lexer: Lexer<T>, private val chars: CharSequence, val data: T) {
 		private var lastMatch = 0
 		private var currentDFA = lexer.dfaList[0]!!
 		private var i = 0

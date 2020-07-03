@@ -236,7 +236,7 @@ data class CharClass(val ranges: List<PlainCharRange>) {
 		var lst = Char.MIN_VALUE
 		val list = ArrayList<PlainCharRange>(ranges.size + 1)
 		for (i in ranges) {
-			if (i.start != Char.MIN_VALUE && i.start - 1 != lst)
+			if (i.start != Char.MIN_VALUE && i.start != lst)
 				list.add(lst plainTo i.start - 1)
 			lst = i.end + 1
 		}
