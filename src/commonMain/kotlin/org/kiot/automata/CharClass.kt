@@ -57,13 +57,21 @@ fun CharRange.plain() = PlainCharRange(start, endInclusive)
  *
  * @author Mivik
  */
-class CharClass(vararg val ranges: PlainCharRange) {
+data class CharClass(val ranges: List<PlainCharRange>) {
 	companion object {
 		// Several useful char class constants.
 		val empty = CharClass()
 		val any = CharClass(Char.MIN_VALUE plainTo Char.MAX_VALUE)
 		val digit = CharClass('0' plainTo '9')
-		val letter = CharClass('a' plainTo 'z', 'A' plainTo 'Z')
+		val letter = CharClass('A' plainTo 'Z', 'a' plainTo 'z')
+		val blank = CharClass(
+			'\t' plainTo '\t',
+			'\n' plainTo '\n',
+			'\u000b' plainTo '\u000b',
+			'\u000c' plainTo '\u000c',
+			'\r' plainTo '\r',
+			' ' plainTo ' '
+		)
 
 		/**
 		 * Obtain [CharClass] from several specified chars.
@@ -101,7 +109,7 @@ class CharClass(vararg val ranges: PlainCharRange) {
 			}
 			if (list.isEmpty() || list.last().start != start)
 				list.add(start plainTo end)
-			return CharClass(*list.toTypedArray())
+			return CharClass(list)
 		}
 
 		/**
@@ -126,9 +134,11 @@ class CharClass(vararg val ranges: PlainCharRange) {
 			}
 			if (list.isEmpty() || list.last().start != start)
 				list.add(start plainTo end)
-			return CharClass(*list.toTypedArray())
+			return CharClass(list)
 		}
 	}
+
+	constructor(vararg ranges: PlainCharRange) : this(ranges.asList())
 
 	fun isEmpty() = ranges.isEmpty()
 	fun isNotEmpty() = ranges.isNotEmpty()
@@ -175,6 +185,8 @@ class CharClass(vararg val ranges: PlainCharRange) {
 	 * where N stands for the amount of [PlainCharRange] in a [CharClass].
 	 */
 	fun merge(other: CharClass): CharClass {
+		if (isEmpty()) return other
+		if (other.isEmpty()) return this
 		var i = 0
 		var j = 0
 		val list = mutableListOf<PlainCharRange>()
@@ -203,14 +215,8 @@ class CharClass(vararg val ranges: PlainCharRange) {
 			}
 			list += PlainCharRange(start, end - 1)
 		}
-		return CharClass(*list.toTypedArray())
+		return CharClass(list)
 	}
-
-	override fun equals(other: Any?): Boolean =
-		if (other is CharClass) ranges.contentEquals(other.ranges)
-		else false
-
-	override fun hashCode(): Int = ranges.hashCode()
 
 	override fun toString(): String {
 		if (ranges.isEmpty()) return ""
@@ -235,7 +241,7 @@ class CharClass(vararg val ranges: PlainCharRange) {
 			lst = i.end + 1
 		}
 		if (ranges.last().end != Char.MAX_VALUE) list.add(lst plainTo Char.MAX_VALUE)
-		return CharClass(*list.toTypedArray())
+		return CharClass(list)
 	}
 
 	/**

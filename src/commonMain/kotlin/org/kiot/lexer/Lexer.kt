@@ -12,6 +12,11 @@ interface LexerData
 
 object EmptyLexerData : LexerData
 
+class LexerMismatchException(val startIndex: Int, val endIndex: Int) : RuntimeException() {
+	override val message: String?
+		get() = "Mismatch in [$startIndex, $endIndex]"
+}
+
 class MarkedDFA<T : LexerData>(val dfa: DFA, private val marks: List<List<(Lexer.Session<T>.() -> Unit)?>>) {
 	fun transit(session: Lexer.Session<T>, cellIndex: Int, transitIndex: Int) {
 		marks[cellIndex][transitIndex]?.invoke(session)

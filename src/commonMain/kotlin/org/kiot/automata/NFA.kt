@@ -42,6 +42,8 @@ class NFA(
 
 		fun from(chars: CharSequence) = NFABuilder.from(chars).build()
 		fun from(chars: Iterator<Char>) = NFABuilder.from(chars).build()
+
+		fun fromRegExp(regexp: String) = NFABuilder.fromRegExp(regexp).build()
 	}
 
 	fun link(from: Int, to: Int) {

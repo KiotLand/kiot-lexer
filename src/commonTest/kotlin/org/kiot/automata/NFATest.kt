@@ -148,6 +148,12 @@ internal class NFATest {
 			assertFalse(match(""))
 			assertFalse(match("a a a a "))
 		}
+		NFABuilder.from("a ").repeatAtLeast(2).build().apply {
+			assertFalse(match("a "))
+			assertTrue(match("a a "))
+			assertTrue(match("a a a "))
+			assertTrue(match("a a a a a "))
+		}
 	}
 
 	@Test
@@ -156,6 +162,59 @@ internal class NFATest {
 		repeat(200) {
 			val number = Random.nextInt(0, 2000) * 3
 			assertTrue(nfa.match(number.toString()))
+			assertFalse(nfa.match((number + 1).toString()))
+			assertFalse(nfa.match((number + 2).toString()))
+		}
+	}
+
+	@Test
+	fun testRegExp() {
+		NFA.fromRegExp("(simple string)").apply {
+			assertTrue(match("simple string"))
+		}
+		NFA.fromRegExp("[0-9]").apply {
+			for (i in '0'..'9') assertTrue(match(i.toString()))
+			for (i in 'a'..'z') assertFalse(match(i.toString()))
+		}
+		NFA.fromRegExp("[0-9a-z]").apply {
+			for (i in '0'..'9') assertTrue(match(i.toString()))
+			for (i in 'a'..'z') assertTrue(match(i.toString()))
+		}
+		NFA.fromRegExp("[\\w][\\W][\\d][\\s]").apply {
+			assertTrue(match("a_3 "))
+			assertFalse(match("ab3 "))
+		}
+		NFA.fromRegExp("[^0-9]+").apply {
+			assertTrue(match("kiot and kotlin"))
+			assertFalse(match("number 0"))
+		}
+		NFA.fromRegExp("(cat|dog)").apply {
+			assertTrue(match("cat"))
+			assertTrue(match("dog"))
+			assertFalse(match("cog")) // wtf?
+		}
+		NFA.fromRegExp("((cat|dog|frog) )*").apply {
+			assertTrue(match(""))
+			assertTrue(match("dog cat "))
+			assertTrue(match("cat cat dog "))
+			assertTrue(match("cat cat dog frog "))
+			assertFalse(match("cat")) // no tailing space
+		}
+		NFA.fromRegExp("\\d+").apply {
+			assertTrue(match("123"))
+			assertFalse(match(""))
+		}
+		NFA.fromRegExp("\\d{1,4}").apply {
+			assertTrue(match("1234"))
+			assertTrue(match("1926"))
+			assertFalse(match(""))
+			assertFalse(match("12345"))
+		}
+		NFA.fromRegExp("\\w{3,}").apply {
+			assertTrue(match("cat"))
+			assertTrue(match("kotlin"))
+			assertFalse(match("do"))
+			assertFalse(match("a"))
 		}
 	}
 }

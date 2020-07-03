@@ -5,7 +5,6 @@ import org.kiot.util.IntList
 import org.kiot.util.NullableList
 import org.kiot.util.emptyIntList
 import org.kiot.util.intListOf
-import org.kiot.util.nullableListOf
 import org.kiot.util.swap
 
 /**

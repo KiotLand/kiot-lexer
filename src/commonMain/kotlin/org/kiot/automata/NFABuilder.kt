@@ -33,6 +33,8 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 			require(chars.hasNext()) { "Chars can not be empty" }
 			return NFABuilder().append(chars)
 		}
+
+		fun fromRegExp(regexp: String) = NFABuilder().appendRegExp(regexp)
 	}
 
 	var beginCell: Int
@@ -65,7 +67,11 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 		endCell = 0
 	}
 
+	fun isEmpty() = endCell == -1
+	fun isNotEmpty() = endCell != -1
+
 	fun append(other: NFABuilder): NFABuilder {
+		if (other.isEmpty()) return this
 		extend(other.beginCell + size)
 		include(other)
 		return this
@@ -116,6 +122,8 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 		extendEnd(nfa.appendCell(charClass))
 		return this
 	}
+
+	fun appendRegExp(regexp: String) = append(RegExpParser(regexp).readExpression())
 
 	/**
 	 * Remove unused cells (cells that cannot be reached from the begin cell) and
@@ -252,6 +260,20 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 		repeat(endInclusive - start) {
 			append(backup)
 		}
+		return this
+	}
+
+	fun repeatAtLeast(time: Int): NFABuilder {
+		require(time>=0) { "Illegal repeating range" }
+		/*
+		((Begin) --> (End))*time --> ((Any))
+		 */
+		val backup = copy()
+		clear()
+		repeat(time) {
+			append(backup)
+		}
+		append(backup.any())
 		return this
 	}
 }

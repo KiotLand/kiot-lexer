@@ -1,7 +1,6 @@
 package org.kiot.lexer
 
 import org.kiot.automata.CharClass
-import org.kiot.automata.NFA
 import org.kiot.automata.NFABuilder
 import org.kiot.util.emptyIntList
 import org.kiot.util.intListOf
