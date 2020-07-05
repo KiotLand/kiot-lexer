@@ -123,20 +123,12 @@ class RegExpParser(chars: CharSequence) {
 	fun readExpression(): NFABuilder {
 		++i
 		check()
-		val ret = NFABuilder()
+		val orList = mutableListOf<NFABuilder>()
+		var tmp = NFABuilder()
 		var last: NFABuilder? = null
-		var orLeftOperand: NFABuilder? = null
 		var lastIsChar = false
 		fun commit() {
-			if (last != null)
-				orLeftOperand?.let {
-					ret.append(NFABuilder.branch(it, last!!))
-					orLeftOperand = null
-					lastIsChar = false
-					last = null
-					return
-				}
-			last?.let { ret.append(it) }
+			last?.let { tmp.append(it) }
 			lastIsChar = false
 			last = null
 		}
@@ -162,12 +154,10 @@ class RegExpParser(chars: CharSequence) {
 				'*' -> last!!.any().also { commit() }
 				'?' -> last!!.unnecessary().also { commit() }
 				'|' -> {
-					if (last == null) unexpected('|')
-					orLeftOperand =
-						if (orLeftOperand == null) last
-						else NFABuilder.branch(orLeftOperand!!, last!!)
-					lastIsChar = false
-					last = null
+					commit()
+					if (tmp.isEmpty()) unexpected('|')
+					orList += tmp
+					tmp = NFABuilder()
 				}
 				'{' -> {
 					val atLeast = readInt() ?: error("Expected integer")
@@ -197,6 +187,8 @@ class RegExpParser(chars: CharSequence) {
 				}
 			}
 		}
-		return ret
+		if (tmp.isNotEmpty()) orList += tmp
+		if (orList.size == 1) return orList[0]
+		return NFABuilder.branch(orList)
 	}
 }

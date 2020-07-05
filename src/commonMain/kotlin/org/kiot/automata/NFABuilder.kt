@@ -21,7 +21,8 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 		fun chain(vararg elements: NFABuilder) =
 			NFABuilder().apply { for (element in elements) append(element) }
 
-		fun branch(vararg branches: NFABuilder) = NFABuilder().appendBranch(*branches)
+		fun branch(vararg branches: NFABuilder) = NFABuilder().appendBranch(branches.asList())
+		fun branch(branches: List<NFABuilder>) = NFABuilder().appendBranch(branches)
 
 		fun from(vararg chars: Char) = from(CharClass.from(*chars))
 		fun fromSorted(vararg chars: Char) = from(CharClass.fromSorted(*chars))
@@ -77,7 +78,8 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 		return this
 	}
 
-	fun appendBranch(vararg branches: NFABuilder): NFABuilder {
+	fun appendBranch(vararg branches: NFABuilder) = appendBranch(branches.asList())
+	fun appendBranch(branches: List<NFABuilder>): NFABuilder {
 		if (branches.isEmpty()) return this
 		if (branches.size == 1) return append(branches[0])
 		/*

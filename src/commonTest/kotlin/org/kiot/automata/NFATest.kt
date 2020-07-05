@@ -216,5 +216,14 @@ internal class NFATest {
 			assertFalse(match("do"))
 			assertFalse(match("a"))
 		}
+		NFA.fromRegExp("[0369]*(([147][0369]*|[258][0369]*[258][0369]*)([147][0369]*[258][0369]*)*([258][0369]*|[147][0369]*[147][0369]*)|[258][0369]*[147][0369]*)*")
+			.apply {
+				repeat(200) {
+					val number = Random.nextInt(0, 2000) * 3
+					assertTrue(match(number.toString()))
+					assertFalse(match((number + 1).toString()))
+					assertFalse(match((number + 2).toString()))
+				}
+			}
 	}
 }
