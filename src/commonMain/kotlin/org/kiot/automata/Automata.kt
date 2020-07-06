@@ -22,6 +22,6 @@ abstract class Automata {
 }
 
 internal fun <T> mergeMark(a: T?, b: T?): T? {
-	require(a == null || b == null) { "Marks conflict" }
+	require((a == null || b == null) || (a == b)) { "Marks conflict" }
 	return a ?: b
 }
