@@ -91,13 +91,17 @@ class RegExpParser(chars: CharSequence) {
 			when (chars[i]) {
 				'^' -> unexpected('^')
 				'-' -> {
-					if (lastChar == null) unexpected('-')
 					++i
-					check()
-					readChars.removeAt(readChars.lastIndex)
-					val endChar = readChar()
-					if (lastChar > endChar) error("Illegal char range: ${lastChar.description()} to ${endChar.description()}")
-					readRanges += lastChar plainTo endChar
+					if (lastChar == null) {
+						readChars += '-'
+						lastChar = '-'
+					} else {
+						check()
+						readChars.removeAt(readChars.lastIndex)
+						val endChar = readChar()
+						if (lastChar > endChar) error("Illegal char range: ${lastChar.description()} to ${endChar.description()}")
+						readRanges += lastChar plainTo endChar
+					}
 				}
 				']' -> break@loop
 				else -> {

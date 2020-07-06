@@ -225,12 +225,18 @@ internal class NFATest {
 					assertFalse(match((number + 2).toString()))
 				}
 			}
+		// Matches negative floating-point number
 		NFA.fromRegExp("-(([0-9]+\\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\\.[0-9]+)|([0-9]*[1-9][0-9]*))").apply {
 			repeat(200) {
 				val number = Random.nextDouble(0.1, 1.0)
 				assertFalse(match(number.toString()))
 				assertTrue(match((-number).toString()))
 			}
+		}
+		// Matches email address
+		NFA.fromRegExp("\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*").apply {
+			assertTrue(match("mivik@qq.com"))
+			assertTrue(match("anonymous@safemail.com"))
 		}
 	}
 }
