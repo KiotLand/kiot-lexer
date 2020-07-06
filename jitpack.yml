@@ -1,0 +1,6 @@
+jdk:
+  - openjdk11
+install:
+  # Exclude Kotlin MPP tests
+  - chmod +x gradlew
+  - ./gradlew clean -Pgroup=$GROUP -Pversion=$VERSION build publishToMavenLocal -x allTests -x jvmTest -x jsBrowserTest -x jsNodeTest
