@@ -2,6 +2,26 @@
 
 package org.kiot.util
 
+abstract class PrimitiveListBinarizer<T, RT : PrimitiveList<T>>(private val binarizer: Binarizer<T>) : Binarizer<RT>() {
+	override fun binarize(bin: Binary, value: RT) = bin.run {
+		put(value.size)
+		for (element in value) write(element, binarizer)
+	}
+
+	override fun debinarize(bin: Binary): RT {
+		val size = bin.int()
+		return create(size).apply {
+			resize(size)
+			for (i in indices) this[i] = bin.read(binarizer)
+		}
+	}
+
+	abstract fun create(size: Int): RT
+
+	override fun dynamicMeasure(value: RT): Int =
+		4 + binarizer.staticSize * value.size
+}
+
 /**
  * An implementation of [MutableList] of primitive types, reducing package wrapping
  * and unwrapping in general [MutableList] obtained from [mutableListOf].
@@ -10,7 +30,7 @@ package org.kiot.util
  *
  * @author Mivik
  */
-abstract class PrimitiveList<T> : MutableList<T> {
+abstract class PrimitiveList<T> : MutableList<T>, Binarizable {
 	companion object {
 		private const val MAX_ARRAY_SIZE = Int.MAX_VALUE - 8
 	}
@@ -200,8 +220,14 @@ abstract class PrimitiveList<T> : MutableList<T> {
 }
 
 class IntList(initialCapacity: Int = 0) : PrimitiveList<Int>() {
-	companion object {
+	companion object : PrimitiveListBinarizer<Int, IntList>(Binary.binarizer()) {
 		private val EMPTY_DATA = intArrayOf()
+
+		init {
+			Binary.register(this)
+		}
+
+		override fun create(size: Int): IntList = IntList(size)
 	}
 
 	var elements = EMPTY_DATA
@@ -273,8 +299,14 @@ inline fun intListOf(vararg elements: Int): IntList =
 inline fun emptyIntList() = IntList()
 
 class BooleanList(initialCapacity: Int = 0) : PrimitiveList<Boolean>() {
-	companion object {
+	companion object : PrimitiveListBinarizer<Boolean, BooleanList>(Binary.binarizer()) {
 		private val EMPTY_DATA = booleanArrayOf()
+
+		init {
+			Binary.register(this)
+		}
+
+		override fun create(size: Int): BooleanList = BooleanList(size)
 	}
 
 	private var elements = EMPTY_DATA
@@ -350,8 +382,14 @@ inline fun booleanListOf(vararg elements: Boolean): BooleanList =
 inline fun emptyBooleanList() = BooleanList()
 
 class CharList(initialCapacity: Int = 0) : PrimitiveList<Char>() {
-	companion object {
+	companion object : PrimitiveListBinarizer<Char, CharList>(Binary.binarizer()) {
 		private val EMPTY_DATA = charArrayOf()
+
+		init {
+			Binary.register(this)
+		}
+
+		override fun create(size: Int): CharList = CharList(size)
 	}
 
 	private var elements = EMPTY_DATA
@@ -420,78 +458,3 @@ inline fun charListOf(vararg elements: Char): CharList =
 	CharList(elements.size).apply { addAll(elements.asList()) }
 
 inline fun emptyCharList() = CharList()
-
-@Suppress("UNCHECKED_CAST")
-class NullableList<T : Any>(initialCapacity: Int = 0) : PrimitiveList<T?>() {
-	companion object {
-		private val EMPTY_DATA = emptyArray<Any?>()
-	}
-
-	private var elements = EMPTY_DATA
-
-	override val elementsSize: Int
-		get() = elements.size
-
-	override fun extendCapacity(newCapacity: Int) {
-		elements = elements.copyOf(newCapacity)
-	}
-
-	override fun moveElements(fromIndex: Int, toIndex: Int, count: Int) {
-		elements.copyInto(elements, toIndex, fromIndex, count)
-	}
-
-	init {
-		elements = when {
-			initialCapacity > 0 -> arrayOfNulls(initialCapacity)
-			initialCapacity == 0 -> EMPTY_DATA
-			else -> error("Illegal capacity: $initialCapacity")
-		}
-	}
-
-	fun copy(): NullableList<T> = NullableList<T>(size).also { it.addAll(this) }
-
-	override fun get(index: Int): T? {
-		ensureIndex(index)
-		return elements[index] as? T
-	}
-
-	override fun set(index: Int, element: T?): T? {
-		ensureIndex(index)
-		return elements[index].also { elements[index] = element } as? T
-	}
-
-	override fun indexOf(element: T?): Int = elements.indexOf(element)
-
-	override fun lastIndexOf(element: T?): Int =
-		elements.lastIndexOf(element)
-
-	override fun addAll(index: Int, elements: Collection<T?>): Boolean {
-		ensureCursor(index)
-		val arr = arrayOfNulls<Any>(elements.size)
-		var i = 0
-		for (element in elements) arr[i++] = element
-		ensureCapacity(size + arr.size)
-		this.elements.copyInto(this.elements, index + arr.size, index, size)
-		arr.copyInto(this.elements, index)
-		size += arr.size
-		return arr.isNotEmpty()
-	}
-
-	override fun hashCode(): Int {
-		var hashCode = 1
-		for (i in this) hashCode = 31 * hashCode + (i?.hashCode() ?: 0)
-		return hashCode
-	}
-
-	override fun equals(other: Any?): Boolean {
-		if (other !is NullableList<*>) return false
-		if (size != other.size) return false
-		for (i in indices) if (elements[i] != other.elements[i]) return false
-		return true
-	}
-}
-
-inline fun <T : Any> nullableListOf(vararg elements: T): NullableList<T> =
-	NullableList<T>(elements.size).apply { addAll(elements.asList()) }
-
-inline fun <T : Any> emptyNullableList() = NullableList<T>()

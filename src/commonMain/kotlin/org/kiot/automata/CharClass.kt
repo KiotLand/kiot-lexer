@@ -1,5 +1,9 @@
 package org.kiot.automata
 
+import org.kiot.util.Binarizable
+import org.kiot.util.Binarizer
+import org.kiot.util.Binary
+
 /**
  * Alternative to [CharRange] in kotlin-stdlib.
  *
@@ -16,10 +20,26 @@ package org.kiot.automata
  *
  * @author Mivik
  */
-data class PlainCharRange(val start: Char, val end: Char) {
-	companion object {
+data class PlainCharRange(val start: Char, val end: Char) : Binarizable {
+	companion object : Binarizer<PlainCharRange>() {
 		val fullRange = PlainCharRange(Char.MIN_VALUE, Char.MAX_VALUE)
 		val empty = PlainCharRange(1.toChar(), 0.toChar())
+
+		init {
+			Binary.register(this)
+		}
+
+		override fun binarize(bin: Binary, value: PlainCharRange) {
+			bin.apply {
+				put(value.start)
+				put(value.end)
+			}
+		}
+
+		override fun debinarize(bin: Binary) = PlainCharRange(bin.char(), bin.char())
+
+		override val actualStaticSize: Int
+			get() = 4
 	}
 
 	operator fun compareTo(other: PlainCharRange) =
@@ -57,8 +77,8 @@ fun CharRange.plain() = PlainCharRange(start, endInclusive)
  *
  * @author Mivik
  */
-data class CharClass(val ranges: List<PlainCharRange>) {
-	companion object {
+data class CharClass(val ranges: List<PlainCharRange>) : Binarizable {
+	companion object : Binarizer<CharClass>() {
 		// Several useful char class constants.
 		val empty = CharClass()
 		val any = CharClass(Char.MIN_VALUE plainTo Char.MAX_VALUE)
@@ -136,6 +156,16 @@ data class CharClass(val ranges: List<PlainCharRange>) {
 				list.add(start plainTo end)
 			return CharClass(list)
 		}
+
+		init {
+			Binary.register(this)
+		}
+
+		override fun binarize(bin: Binary, value: CharClass) = bin.putList(value.ranges)
+
+		override fun debinarize(bin: Binary) = CharClass(Array(bin.int()) { bin.read<PlainCharRange>() }.asList())
+
+		override fun dynamicMeasure(value: CharClass) = 4 + value.ranges.size * 8
 	}
 
 	constructor(vararg ranges: PlainCharRange) : this(ranges.asList())

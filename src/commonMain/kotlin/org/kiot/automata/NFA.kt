@@ -1,5 +1,8 @@
 package org.kiot.automata
 
+import org.kiot.util.Binarizable
+import org.kiot.util.Binarizer
+import org.kiot.util.Binary
 import org.kiot.util.BitSet
 import org.kiot.util.CircularIntQueue
 import org.kiot.util.IntList
@@ -33,8 +36,8 @@ class NFA(
 	 */
 	private val charClasses: MutableList<CharClass> = mutableListOf(),
 	private val outs: MutableList<IntList> = mutableListOf() // Mentioned above
-) : Automata() {
-	companion object {
+) : Automata(), Binarizable {
+	companion object : Binarizer<NFA>() {
 		fun from(vararg chars: Char) = NFABuilder.from(*chars).build()
 		fun fromSorted(vararg chars: Char) = NFABuilder.fromSorted(*chars).build()
 		fun fromSorted(chars: String) = NFABuilder.fromSorted(chars).build()
@@ -44,6 +47,28 @@ class NFA(
 		fun from(chars: Iterator<Char>) = NFABuilder.from(chars).build()
 
 		fun fromRegExp(regexp: String) = NFABuilder.fromRegExp(regexp).build()
+
+		init {
+			Binary.register(this)
+		}
+
+		override fun binarize(bin: Binary, value: NFA) = bin.run {
+			put(value.size)
+			for (charClass in value.charClasses) write(charClass, CharClass)
+			for (outs in value.outs) write(outs, IntList)
+			put(value.beginCell)
+		}
+
+		override fun debinarize(bin: Binary): NFA {
+			val size = bin.int()
+			return NFA(
+				MutableList(size) { bin.read(CharClass) },
+				MutableList(size) { bin.read(IntList) }
+			).apply { beginCell = bin.int() }
+		}
+
+		override fun dynamicMeasure(value: NFA): Int =
+			8 + Binary.measureListSize(value.charClasses, CharClass) + Binary.measureListSize(value.outs, IntList)
 	}
 
 	fun link(from: Int, to: Int) {

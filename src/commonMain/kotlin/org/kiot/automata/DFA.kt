@@ -1,13 +1,16 @@
 package org.kiot.automata
 
+import org.kiot.util.Binarizable
+import org.kiot.util.Binarizer
+import org.kiot.util.Binary
 import org.kiot.util.BitSet
 import org.kiot.util.IntList
-import org.kiot.util.NullableList
 import org.kiot.util.emptyIntList
 import org.kiot.util.intListOf
+import org.kiot.util.measureSize
 import org.kiot.util.swap
 
-sealed class DFA(protected val finalFlags: BitSet) {
+sealed class DFA(protected val finalFlags: BitSet) : Binarizable {
 	val size: Int
 		get() = finalFlags.size
 	val beginCell: Int
@@ -75,6 +78,33 @@ class GeneralDFA internal constructor(
 	 */
 	finalFlags: BitSet
 ) : DFA(finalFlags) {
+	companion object : Binarizer<GeneralDFA>() {
+		init {
+			Binary.register(this)
+		}
+
+		override fun binarize(bin: Binary, value: GeneralDFA) = bin.run {
+			put(value.size)
+			for (ranges in value.charRanges) putList(ranges)
+			for (outs in value.outs) putList(outs, Binary.binarizer())
+			write(value.finalFlags, BitSet)
+		}
+
+		override fun debinarize(bin: Binary): GeneralDFA {
+			val size = bin.int()
+			return GeneralDFA(
+				Array(size) { bin.readList(PlainCharRange) }.asList(),
+				Array(size) { bin.readList(Binary.binarizer<Int>()) }.asList(),
+				bin.read(BitSet)
+			)
+		}
+
+		override fun dynamicMeasure(value: GeneralDFA): Int =
+			4 + value.charRanges.sumBy { 4 + it.size * 4 } + value.outs.sumBy { 4 + it.size * 4 } + value.finalFlags.measureSize(
+				BitSet
+			)
+	}
+
 	fun charRangesOf(cellIndex: Int) = charRanges[cellIndex]
 	fun outsOf(cellIndex: Int) = outs[cellIndex]
 
@@ -181,14 +211,15 @@ class GeneralDFA internal constructor(
 			val myRanges = mutableListOf<PlainCharRange>()
 			val myOuts = emptyIntList()
 			if (marks != null) {
-				val myMarks = NullableList<T>(current[i].first())
+				val myMarks = arrayOfNulls<Any>(current[i].first())
 				for (j in current[i].indices) {
 					val cell = current[i][j]
 					val tmp = marks[cell]
 					require(charRanges[cell].size == tmp.size)
 					for (k in tmp.indices) myMarks[k] = mergeMark(myMarks[k], tmp[k])
 				}
-				newMarks!!.add(myMarks)
+				@Suppress("UNCHECKED_CAST")
+				newMarks!!.add(myMarks as List<T?>)
 			}
 			current[i].first().let {
 				val ranges = charRanges[it]
@@ -320,7 +351,44 @@ class CompressedDFA(
 	private val transitionBegin: IntArray,
 
 	finalFlags: BitSet
-) : DFA(finalFlags) {
+) : DFA(finalFlags), Binarizable {
+	companion object : Binarizer<CompressedDFA>() {
+		init {
+			Binary.register(this)
+		}
+
+		override fun binarize(bin: Binary, value: CompressedDFA) = bin.run {
+			put(value.charClassTable)
+			put(value.topLevelCharClassTable)
+			put(value.transitionIndices)
+			put(value.transitionIndexBegin)
+			put(value.transitions)
+			put(value.transitionBegin)
+			write(value.finalFlags, BitSet)
+		}
+
+		override fun debinarize(bin: Binary): CompressedDFA =
+			CompressedDFA(
+				bin.shortArray(),
+				bin.byteArray(),
+				bin.intArray(),
+				bin.intArray(),
+				bin.intArray(),
+				bin.intArray(),
+				bin.read(BitSet)
+			)
+
+		override fun dynamicMeasure(value: CompressedDFA): Int {
+			return Binary.measure(value.charClassTable) +
+					Binary.measure(value.topLevelCharClassTable) +
+					Binary.measure(value.transitionIndices) +
+					Binary.measure(value.transitionIndexBegin) +
+					Binary.measure(value.transitions) +
+					Binary.measure(value.transitionBegin) +
+					value.finalFlags.measureSize(BitSet)
+		}
+	}
+
 	private fun charClassIndex(char: Char) =
 		char.toInt().let { charClassTable[(topLevelCharClassTable[it ushr 8].toInt() shl 8) or (it and 0xFF)] }
 

@@ -2,6 +2,10 @@
   <dictionary name="mivik">
     <words>
       <w>ametus</w>
+      <w>binarizable</w>
+      <w>binarize</w>
+      <w>binarizer</w>
+      <w>debinarize</w>
       <w>kiot</w>
       <w>mivik</w>
     </words>

@@ -4,7 +4,6 @@ import org.kiot.automata.GeneralDFA
 import org.kiot.automata.MarkedDFA
 import org.kiot.automata.MarkedGeneralDFA
 import org.kiot.automata.NFABuilder
-import org.kiot.util.nullableListOf
 
 interface LexerState {
 	val ordinal: Int
@@ -58,7 +57,7 @@ class MarkedDFABuilder<T> {
 }
 
 class LexerBuilder<T>(private val minimize: Boolean) {
-	private val markedDFAs = nullableListOf<MarkedDFA<*, T>>()
+	private val markedDFAs = mutableListOf<MarkedDFA<*, T>?>()
 
 	val default: Int
 		inline get() = 0
@@ -66,7 +65,7 @@ class LexerBuilder<T>(private val minimize: Boolean) {
 	fun state(state: LexerState, block: MarkedDFABuilder<T>.() -> Unit) = state(state.ordinal + 1, block)
 
 	fun state(stateIndex: Int, block: MarkedDFABuilder<T>.() -> Unit) {
-		markedDFAs.resize(stateIndex + 1)
+		while (markedDFAs.size <= stateIndex) markedDFAs.add(null)
 		markedDFAs[stateIndex] = MarkedDFABuilder<T>().apply(block).build(minimize)
 	}
 
@@ -143,7 +142,7 @@ class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) 
 					dfa = currentDFA.dfa
 					lastMatch = i
 					x = dfa.beginCell
-					if (i==chars.length) break
+					if (i == chars.length) break
 					continue
 				}
 				val target = dfa.getOut(x, index)
