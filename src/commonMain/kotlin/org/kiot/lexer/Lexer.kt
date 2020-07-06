@@ -131,8 +131,8 @@ class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) 
 			var lastIndex = -1
 			var lastNode = 0
 			// note that all the marks lies in final cells, since we only marked end cells in NFAs.
-			while (i < chars.length) {
-				var index = dfa.transitionIndex(x, chars[i])
+			while (i <= chars.length) {
+				var index = if (i == chars.length) -1 else dfa.transitionIndex(x, chars[i])
 				if (index == -1) {
 					if (lastIndex == -1) throw LexerMismatchException(lastMatch, i)
 					i = lastIndex
@@ -143,6 +143,7 @@ class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) 
 					dfa = currentDFA.dfa
 					lastMatch = i
 					x = dfa.beginCell
+					if (i==chars.length) break
 					continue
 				}
 				val target = dfa.getOut(x, index)
@@ -153,8 +154,6 @@ class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) 
 				x = target
 				++i
 			}
-			if (lastIndex == -1) throw LexerMismatchException(lastMatch, i)
-			currentDFA.transit(this, lastNode, dfa.transitionIndex(lastNode, chars[lastIndex]))
 		}
 	}
 }
