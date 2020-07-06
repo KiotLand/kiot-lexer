@@ -69,15 +69,4 @@ kotlin {
 			}
 		}
 	}
-
-	afterEvaluate {
-		project.publishing.publications.all {
-			groupId = group
-			if (it.name.contains('metadata')) {
-				artifactId = "$libraryName"
-			} else {
-				artifactId = "$libraryName-$name"
-			}
-		}
-	}
 }
