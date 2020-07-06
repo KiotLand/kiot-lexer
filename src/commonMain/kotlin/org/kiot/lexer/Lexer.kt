@@ -1,6 +1,8 @@
 package org.kiot.lexer
 
-import org.kiot.automata.DFA
+import org.kiot.automata.GeneralDFA
+import org.kiot.automata.MarkedDFA
+import org.kiot.automata.MarkedGeneralDFA
 import org.kiot.automata.NFABuilder
 import org.kiot.util.nullableListOf
 
@@ -15,12 +17,6 @@ class LexerMismatchException(val startIndex: Int, val endIndex: Int) : RuntimeEx
 		get() = "Mismatch in [$startIndex, $endIndex]"
 }
 
-class MarkedDFA<T>(val dfa: DFA, private val marks: List<List<(Lexer.Session<T>.() -> Unit)?>>) {
-	fun transit(session: Lexer.Session<T>, cellIndex: Int, transitIndex: Int) {
-		marks[cellIndex][transitIndex]?.invoke(session)
-	}
-}
-
 class MarkedDFABuilder<T> {
 	private val pairs = mutableListOf<Pair<NFABuilder, (Lexer.Session<T>.() -> Unit)?>>()
 
@@ -33,7 +29,7 @@ class MarkedDFABuilder<T> {
 		pairs.add(Pair(NFABuilder.fromRegExp(this), listener))
 	}
 
-	fun build(minimize: Boolean): MarkedDFA<T> {
+	fun build(minimize: Boolean): MarkedDFA<GeneralDFA, T> {
 		require(pairs.isNotEmpty()) { "DFA used for lexer can not be empty" }
 		val builder = NFABuilder()
 		val nfa = builder.nfa
@@ -57,15 +53,15 @@ class MarkedDFABuilder<T> {
 		}
 		newMarks!!
 		require(!dfa.isFinal(dfa.beginCell)) { "The DFA built from NFA can match empty string, which is not permitted." }
-		return MarkedDFA(dfa, newMarks)
+		return MarkedGeneralDFA(dfa, newMarks)
 	}
 }
 
 class LexerBuilder<T>(private val minimize: Boolean) {
-	private val markedDFAs = nullableListOf<MarkedDFA<T>>()
+	private val markedDFAs = nullableListOf<MarkedDFA<*, T>>()
 
 	val default: Int
-		get() = 0
+		inline get() = 0
 
 	fun state(state: LexerState, block: MarkedDFABuilder<T>.() -> Unit) = state(state.ordinal + 1, block)
 
@@ -77,7 +73,7 @@ class LexerBuilder<T>(private val minimize: Boolean) {
 	fun build(dataGenerator: () -> T) = Lexer(markedDFAs, dataGenerator)
 }
 
-class Lexer<T>(val dfaList: List<MarkedDFA<T>?>, val dataGenerator: () -> T) {
+class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) {
 	companion object {
 		inline fun simple(
 			minimize: Boolean = false,
@@ -149,7 +145,7 @@ class Lexer<T>(val dfaList: List<MarkedDFA<T>?>, val dataGenerator: () -> T) {
 					x = dfa.beginCell
 					continue
 				}
-				val target = dfa.outsOf(x)[index]
+				val target = dfa.getOut(x, index)
 				if (dfa.isFinal(target)) {
 					lastIndex = i
 					lastNode = x

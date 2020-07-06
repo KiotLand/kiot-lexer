@@ -17,7 +17,7 @@ fun NFA.buildGraph() = kot {
 	}
 }
 
-fun DFA.buildGraph() = kot {
+fun GeneralDFA.buildGraph() = kot {
 	digraph {
 		for (i in indices) {
 			val cur = node(i.toString())

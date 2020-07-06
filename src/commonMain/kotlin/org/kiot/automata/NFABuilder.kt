@@ -248,6 +248,7 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 
 	fun repeat(start: Int, endInclusive: Int): NFABuilder {
 		require(start in 0..endInclusive) { "Illegal repeating range" }
+		if (start == 0 && endInclusive == 1) return unnecessary()
 		/*
 		                                  |-------------------------------------------------------|
 		                                  |                                                       √
@@ -266,7 +267,9 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 	}
 
 	fun repeatAtLeast(time: Int): NFABuilder {
-		require(time>=0) { "Illegal repeating range" }
+		require(time >= 0) { "Illegal repeating range" }
+		if (time == 0) return any()
+		if (time == 1) return oneOrMore()
 		/*
 		((Begin) --> (End))*time --> ((Any))
 		 */

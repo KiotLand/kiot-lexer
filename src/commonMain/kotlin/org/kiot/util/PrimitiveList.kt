@@ -43,13 +43,19 @@ abstract class PrimitiveList<T> : MutableList<T> {
 
 	protected fun ensureCapacity(minCapacity: Int) {
 		val oldCapacity: Int = elementsSize
+		if (minCapacity<=oldCapacity) return
 		var newCapacity = oldCapacity + (oldCapacity shr 1)
-		if (newCapacity - minCapacity < 0) newCapacity = minCapacity
-		if (newCapacity - MAX_ARRAY_SIZE > 0) {
+		if (newCapacity <= minCapacity) newCapacity = minCapacity
+		if (newCapacity > MAX_ARRAY_SIZE) {
 			if (minCapacity < 0) error("out of memory")
 			newCapacity = if (minCapacity > MAX_ARRAY_SIZE) Int.MAX_VALUE else MAX_ARRAY_SIZE
 		}
-		extendCapacity(newCapacity)
+		try {
+			extendCapacity(newCapacity)
+		} catch (t: Throwable) {
+			println("Crashes! $newCapacity")
+			throw RuntimeException()
+		}
 	}
 
 	override fun contains(element: T): Boolean =
@@ -210,6 +216,10 @@ class IntList(initialCapacity: Int = 0) : PrimitiveList<Int>() {
 		get() = elements.size
 
 	override fun extendCapacity(newCapacity: Int) {
+		if (newCapacity >= 1000000) {
+			println("wtf? size is $size but you let me extend to $newCapacity")
+			throw Throwable()
+		}
 		elements = elements.copyOf(newCapacity)
 	}
 

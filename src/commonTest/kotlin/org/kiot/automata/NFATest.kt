@@ -225,5 +225,12 @@ internal class NFATest {
 					assertFalse(match((number + 2).toString()))
 				}
 			}
+		NFA.fromRegExp("-(([0-9]+\\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\\.[0-9]+)|([0-9]*[1-9][0-9]*))").apply {
+			repeat(200) {
+				val number = Random.nextDouble(0.1, 1.0)
+				assertFalse(match(number.toString()))
+				assertTrue(match((-number).toString()))
+			}
+		}
 	}
 }

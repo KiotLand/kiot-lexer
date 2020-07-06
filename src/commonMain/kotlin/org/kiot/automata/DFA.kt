@@ -7,6 +7,37 @@ import org.kiot.util.emptyIntList
 import org.kiot.util.intListOf
 import org.kiot.util.swap
 
+sealed class DFA(private val finalFlags: BitSet) {
+	val size: Int
+		get() = finalFlags.size
+	val beginCell: Int
+		inline get() = 0
+
+	val indices: IntRange
+		inline get() = 0 until size
+
+	fun isFinal(cellIndex: Int) = finalFlags[cellIndex]
+
+	abstract fun transitionIndex(cellIndex: Int, char: Char): Int
+
+	abstract fun getOut(cellIndex: Int, transitionIndex: Int): Int
+
+	open fun transit(cellIndex: Int, char: Char) = getOut(cellIndex, transitionIndex(cellIndex, char))
+
+	fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
+	fun match(chars: Iterator<Char>, exact: Boolean = true): Boolean {
+		if (!chars.hasNext()) return finalFlags[beginCell]
+		if ((!exact) && finalFlags[beginCell]) return true
+		var x = beginCell
+		do {
+			x = transit(x, chars.next())
+			if (x == -1) return false
+			if (!exact && finalFlags[x]) return true
+		} while (chars.hasNext())
+		return finalFlags[x]
+	}
+}
+
 /**
  * DFA stands for "Deterministic finite automata".
  *
@@ -22,7 +53,7 @@ import org.kiot.util.swap
  *
  * @author Mivik
  */
-class DFA internal constructor(
+class GeneralDFA internal constructor(
 	/**
 	 * We store a [List<PlainCharRange>] for each DFA cell so that we can determine which
 	 * cell we should transit to. Simplified transition code is:
@@ -42,27 +73,18 @@ class DFA internal constructor(
 	/**
 	 * Whether a DFA cell is final or not
 	 */
-	private val finalFlags: BitSet
-) {
-	val size: Int
-		get() = charRanges.size
-	val beginCell: Int
-		get() = 0
-
-	val indices: IntRange
-		get() = 0 until size
-
+	finalFlags: BitSet
+) : DFA(finalFlags) {
 	fun charRangesOf(cellIndex: Int) = charRanges[cellIndex]
 	fun outsOf(cellIndex: Int) = outs[cellIndex]
-	fun isFinal(cellIndex: Int) = finalFlags[cellIndex]
 
-	fun transit(cellIndex: Int, char: Char) =
+	override fun transit(cellIndex: Int, char: Char) =
 		transitionIndex(cellIndex, char).let {
 			if (it == -1) -1
 			else outs[cellIndex][it]
 		}
 
-	fun transitionIndex(cellIndex: Int, char: Char): Int {
+	override fun transitionIndex(cellIndex: Int, char: Char): Int {
 		val ranges = charRanges[cellIndex]
 		var l = 0
 		var r = ranges.lastIndex
@@ -76,18 +98,7 @@ class DFA internal constructor(
 		return -1
 	}
 
-	fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
-	fun match(chars: Iterator<Char>, exact: Boolean = true): Boolean {
-		if (!chars.hasNext()) return finalFlags[beginCell]
-		if ((!exact) && finalFlags[beginCell]) return true
-		var x = beginCell
-		do {
-			x = transit(x, chars.next())
-			if (x == -1) return false
-			if (!exact && finalFlags[x]) return true
-		} while (chars.hasNext())
-		return finalFlags[x]
-	}
+	override fun getOut(cellIndex: Int, transitionIndex: Int): Int = outs[cellIndex][transitionIndex]
 
 	internal class TransitionSet : org.kiot.automata.TransitionSet<IntList>() {
 		override fun copy(element: IntList): IntList = element.copy()
@@ -99,7 +110,7 @@ class DFA internal constructor(
 
 	fun minimize() = minimize<Any>(null).first
 
-	fun <T : Any> minimize(marks: List<List<T?>>?): Pair<DFA, List<List<T?>>?> {
+	fun <T : Any> minimize(marks: List<List<T?>>?): Pair<GeneralDFA, List<List<T?>>?> {
 		var current = mutableListOf<IntList>()
 		val group = emptyIntList()
 		fun transitionSet(cellIndex: Int): TransitionSet {
@@ -181,7 +192,7 @@ class DFA internal constructor(
 			}
 			current[i].first().let {
 				val ranges = charRanges[it]
-				val tmp = outsOf(it)
+				val tmp = outs[it]
 				myRanges.addAll(ranges)
 				for (j in ranges.indices) {
 					myRanges += ranges[j]
@@ -192,6 +203,33 @@ class DFA internal constructor(
 			newOuts += myOuts
 			newFinalFlags[i] = current[i].any { isFinal(it) }
 		}
-		return Pair(DFA(newCharRanges, newOuts, newFinalFlags), newMarks)
+		return Pair(GeneralDFA(newCharRanges, newOuts, newFinalFlags), newMarks)
 	}
+}
+
+class CompressedDFA(
+	// charClassIndex(char) = charClassTable[topLevelCharClassTable[char>>8]<<8)|(char&0xFF)]
+	private val charClassTable: ShortArray,
+	private val topLevelCharClassTable: ByteArray,
+
+	// transitionIndex(cell, char) = transitionIndex[transitionIndexBegin[cell]+charClassIndex(char)]
+	private val transitionIndices: IntArray,
+	private val transitionIndexBegin: IntArray,
+
+	// transit(cell, char) = transitions[transitionBegin[cell]+transitionIndex(cell, char)]
+	private val transitions: IntArray,
+	private val transitionBegin: IntArray,
+
+	finalFlags: BitSet
+) : DFA(finalFlags) {
+	private fun charClassIndex(char: Char) =
+		char.toInt().let { charClassTable[(topLevelCharClassTable[it ushr 8].toInt() shl 8) or (it and 0xFF)] }
+
+	override fun transitionIndex(cellIndex: Int, char: Char) =
+		transitionIndices[transitionIndexBegin[cellIndex] + charClassIndex(char)]
+
+	fun transition(cellIndex: Int, transitionIndex: Int) = transitionBegin[cellIndex] + transitionIndex
+
+	override fun getOut(cellIndex: Int, transitionIndex: Int) =
+		transitions[transition(cellIndex, transitionIndex)]
 }

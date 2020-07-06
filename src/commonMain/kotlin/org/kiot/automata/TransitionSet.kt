@@ -22,7 +22,7 @@ internal abstract class TransitionSet<T : Any> : Iterable<Pair<PlainCharRange, T
 	abstract fun T.merge(other: T)
 
 	val size: Int
-		get() = ranges.size
+		inline get() = ranges.size
 
 	private fun split(char: Char): Int {
 		optimized = false

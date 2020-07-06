@@ -38,7 +38,7 @@ class RegExpParser(chars: CharSequence) {
 		val char = chars[i++]
 		return if (char == '\\') {
 			check()
-			chars[i].also { if (it !in LEGAL_ESCAPE_CHAR) throw IllegalEscapeException(it) }
+			chars[i++].also { if (it !in LEGAL_ESCAPE_CHAR) throw IllegalEscapeException(it) }
 		} else char
 	}
 

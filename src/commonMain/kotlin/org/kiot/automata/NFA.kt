@@ -55,7 +55,7 @@ class NFA(
 		get() = charClasses.size
 	override var beginCell = finalCell
 	val finalCell: Int
-		get() = -1
+		inline get() = -1
 
 	val indices: IntRange
 		inline get() = 0 until size
@@ -155,8 +155,7 @@ class NFA(
 
 		fun add(element: Int) {
 			if (nfa.isFinal(element)) {
-				++finalCount
-				list.add(element)
+				if (finalCount++ == 0) list.add(element)
 				return
 			}
 			if (bitset[element]) return
@@ -170,8 +169,7 @@ class NFA(
 
 		fun remove(element: Int) {
 			if (nfa.isFinal(element)) {
-				--finalCount
-				list.remove(element)
+				if (--finalCount == 0) list.remove(element)
 				return
 			}
 			if (!bitset[element]) return
@@ -268,12 +266,12 @@ class NFA(
 		}
 	}
 
-	fun toDFA(): DFA = toDFA<Any>(null).first
+	fun toDFA(): GeneralDFA = toDFA<Any>(null).first
 
 	/**
 	 * Convert a NFA into DFA using Subset Construction.
 	 */
-	fun <T> toDFA(marks: List<T?>?): Pair<DFA, List<List<T?>>?> {
+	fun <T> toDFA(marks: List<T?>?): Pair<GeneralDFA, List<List<T?>>?> {
 		require(marks == null || marks.size == size)
 
 		val charRanges = mutableListOf<MutableList<PlainCharRange>>()
@@ -315,7 +313,7 @@ class NFA(
 			}
 		}
 		return Pair(
-			DFA(charRanges, outs, finalFlags.toBitSet()),
+			GeneralDFA(charRanges, outs, finalFlags.toBitSet()),
 			transitionMarks
 		)
 	}
