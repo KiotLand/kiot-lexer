@@ -7,7 +7,7 @@ import org.kiot.util.emptyIntList
 import org.kiot.util.intListOf
 import org.kiot.util.swap
 
-sealed class DFA(private val finalFlags: BitSet) {
+sealed class DFA(protected val finalFlags: BitSet) {
 	val size: Int
 		get() = finalFlags.size
 	val beginCell: Int
@@ -205,6 +205,105 @@ class GeneralDFA internal constructor(
 		}
 		return Pair(GeneralDFA(newCharRanges, newOuts, newFinalFlags), newMarks)
 	}
+
+	private class CharClassMapKey(val array: ShortArray, val index: Int) {
+		override fun equals(other: Any?): Boolean =
+			if (other is CharClassMapKey) run {
+				for (i in 0 until 256) if (array[index + i] != other.array[other.index + i]) return false
+				return true
+			} else false
+
+		override fun hashCode(): Int {
+			var ret = 0
+			for (i in index until index + 256) ret = (ret * 31) + array[i]
+			return ret
+		}
+	}
+
+	private class TransitionMapKey(val array: IntArray) {
+		override fun equals(other: Any?): Boolean =
+			if (other is TransitionMapKey) array.contentEquals(other.array)
+			else false
+
+		override fun hashCode(): Int = array.contentHashCode()
+	}
+
+	fun compressed(): CompressedDFA {
+		val set = object : org.kiot.automata.TransitionSet<Unit>() {
+			override fun copy(element: Unit) {}
+
+			override fun Unit.merge(other: Unit) {}
+		}
+		for (cell in indices)
+			for (range in charRangesOf(cell))
+				set.add(range, Unit)
+		val ranges = set.ranges
+		val array = ShortArray(65536)
+		val topLevelCharClassTable = ByteArray(256)
+		val charClassTable: ShortArray
+		var charClassCount: Int
+		val charClassMap = emptyIntList()
+		val transitionIndices: IntArray
+		val transitionIndexBegin = IntArray(size)
+		val transitions: IntArray
+		val transitionBegin = IntArray(size)
+		run {
+			run {
+				val units = set.targets
+				var index = -1
+				var tot = 0.toShort()
+				var cur = 0.toShort()
+				for (char in Char.MIN_VALUE..Char.MAX_VALUE) {
+					if (index != ranges.size - 1 && char >= ranges[index + 1].start) {
+						++index
+						cur = if (units[index] == null) -1 else {
+							charClassMap += index
+							tot++
+						}
+					}
+					array[char - Char.MIN_VALUE] = cur
+				}
+				charClassCount = tot.toInt()
+			}
+			val map = mutableMapOf<CharClassMapKey, Int>()
+			for (i in 0 until 256)
+				topLevelCharClassTable[i] = map.getOrPut(CharClassMapKey(array, i shl 8)) { map.size }.toByte()
+			charClassTable = ShortArray(map.size shl 8)
+			for (pair in map)
+				array.copyInto(charClassTable, pair.value shl 8, pair.key.index, pair.key.index + 256)
+		}
+		run {
+			val map = mutableMapOf<TransitionMapKey, Int>()
+			for (cell in indices) {
+				val transition = IntArray(charClassCount)
+				for (i in 0 until charClassCount)
+					transition[i] = transitionIndex(cell, ranges[charClassMap[i]].start)
+				transitionIndexBegin[cell] = map.getOrPut(TransitionMapKey(transition)) { map.size } * charClassCount
+			}
+			transitionIndices = IntArray(map.size * charClassCount)
+			for (pair in map)
+				pair.key.array.copyInto(transitionIndices, pair.value * charClassCount)
+		}
+		run {
+			transitions = IntArray(indices.sumBy { outsOf(it).size })
+			var tot = 0
+			for (cell in indices) {
+				transitionBegin[cell] = tot
+				val outs = outsOf(cell)
+				for (i in outs.indices) transitions[tot + i] = outs[i]
+				tot += outs.size
+			}
+		}
+		return CompressedDFA(
+			charClassTable,
+			topLevelCharClassTable,
+			transitionIndices,
+			transitionIndexBegin,
+			transitions,
+			transitionBegin,
+			finalFlags
+		)
+	}
 }
 
 class CompressedDFA(
@@ -226,7 +325,10 @@ class CompressedDFA(
 		char.toInt().let { charClassTable[(topLevelCharClassTable[it ushr 8].toInt() shl 8) or (it and 0xFF)] }
 
 	override fun transitionIndex(cellIndex: Int, char: Char) =
-		transitionIndices[transitionIndexBegin[cellIndex] + charClassIndex(char)]
+		charClassIndex(char).let {
+			if (it == (-1).toShort()) -1
+			else transitionIndices[transitionIndexBegin[cellIndex] + it]
+		}
 
 	fun transition(cellIndex: Int, transitionIndex: Int) = transitionBegin[cellIndex] + transitionIndex
 
