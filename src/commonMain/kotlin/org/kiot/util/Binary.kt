@@ -116,6 +116,14 @@ class Binary(val array: ByteArray, var index: Int = 0, val endIndex: Int = array
 		inline fun measure(value: LongArray) = 4 + value.size * 8
 		inline fun measure(value: FloatArray) = 4 + value.size * 4
 		inline fun measure(value: DoubleArray) = 4 + value.size * 8
+
+		inline fun <T> measure(value: T, binarizer: Binarizer<T>) = binarizer.measure(value)
+
+		inline fun <T> binarize(value: T, binarizer: Binarizer<T>): ByteArray {
+			return ByteArray(binarizer.measure(value)).also { binarizer.binarize(it.asBinary(), value) }
+		}
+
+		inline fun <T> debinarize(data: ByteArray, binarizer: Binarizer<T>): T = binarizer.debinarize(data.asBinary())
 	}
 
 	inline fun <R> require(count: Int, block: () -> R): R {
@@ -262,14 +270,6 @@ class Binary(val array: ByteArray, var index: Int = 0, val endIndex: Int = array
 
 inline fun ByteArray.asBinary(index: Int = 0, endIndex: Int = size) = Binary(this, index, endIndex)
 
-inline fun <reified T : Binarizable> T.binarize(): ByteArray = binarize(Binary.binarizer())
-
-inline fun <reified T> T.binarize(binarizer: Binarizer<T>): ByteArray {
-	return ByteArray(binarizer.measure(this)).also { binarizer.binarize(it.asBinary(), this) }
-}
-
+inline fun <reified T : Binarizable> T.binarize(): ByteArray = Binary.binarize(this, Binary.binarizer())
 inline fun <reified T : Binarizable> ByteArray.debinarize(): T = asBinary().read()
-inline fun <reified T> ByteArray.debinarize(binarizer: Binarizer<T>): T = asBinary().read(binarizer)
-
 inline fun <reified T : Binarizable> T.measureSize(): Int = Binary.binarizer<T>().measure(this)
-inline fun <reified T> T.measureSize(binarizer: Binarizer<T>): Int = binarizer.measure(this)

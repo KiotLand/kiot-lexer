@@ -100,7 +100,8 @@ class GeneralDFA internal constructor(
 		}
 
 		override fun dynamicMeasure(value: GeneralDFA): Int =
-			4 + value.charRanges.sumBy { 4 + it.size * 4 } + value.outs.sumBy { 4 + it.size * 4 } + value.finalFlags.measureSize(
+			4 + value.charRanges.sumBy { 4 + it.size * 4 } + value.outs.sumBy { 4 + it.size * 4 } + Binary.measure(
+				value.finalFlags,
 				BitSet
 			)
 	}
@@ -385,7 +386,7 @@ class CompressedDFA(
 					Binary.measure(value.transitionIndexBegin) +
 					Binary.measure(value.transitions) +
 					Binary.measure(value.transitionBegin) +
-					value.finalFlags.measureSize(BitSet)
+					Binary.measure(value.finalFlags, BitSet)
 		}
 	}
 
