@@ -239,4 +239,16 @@ internal class NFATest {
 			assertTrue(match("anonymous@safemail.com"))
 		}
 	}
+
+	@Test
+	fun testComposedRegExp() {
+		run {
+			val number = regexp("\\d+")
+			val word = regexp("\\w+")
+			regexp("((", number, "|", word, ") )+").build().apply {
+				assertTrue(match("i have a dream "))
+				assertTrue(match("42 is a mysterious number "))
+			}
+		}
+	}
 }

@@ -13,85 +13,140 @@ private class IllegalEscapeException(char: Char) :
 private class UnexpectedCharException(char: Char) :
 	RegExpException("Unexpected char: ${char.description()}")
 
+/**
+ * Simple RegExp parser.
+ *
+ * @author Mivik
+ */
 @Suppress("NOTHING_TO_INLINE")
-class RegExpParser(chars: CharSequence) {
+internal class RegExpParser(private val elements: List<Any> /* could be String or NFABuilder */) {
 	companion object {
 		const val LEGAL_ESCAPE_CHAR = "-()*+.[]?\\^{}|"
 	}
 
-	private val chars = "($chars)"
-	private var i = 0
+	private var index = 0
+	private var stringIndex = initialStringIndex()
+	private var buffer: Char? = null
+
+	private fun eof() = index == elements.size
+	private fun initialStringIndex() = when (elements[index]) {
+		is Char -> -2
+		is NFABuilder -> -1
+		else -> 0
+	}
+
+	private fun moveForward() {
+		if (buffer != null) {
+			buffer = null
+			return
+		}
+		if (stringIndex >= 0 && ++stringIndex != (elements[index] as String).length) return
+		stringIndex =
+			if (++index == elements.size) -3
+			else initialStringIndex()
+	}
+
+	private inline fun unget(char: Char) {
+		require(buffer == null) { "unget conflict" }
+		buffer = char
+	}
+
+	private inline fun view(expBlock: (NFABuilder) -> Unit, charBlock: (Char) -> Unit) {
+		require(!eof()) { "Unexpected termination" }
+		buffer?.let {
+			charBlock(it)
+			return
+		}
+		when (stringIndex) {
+			-2 -> charBlock(elements[index] as Char)
+			-1 -> expBlock(elements[index] as NFABuilder)
+			else -> charBlock((elements[index] as String)[stringIndex])
+		}
+	}
+
+	private inline fun viewChar(): Char {
+		view({ error("Expected char") }) { return it }
+		error()
+	}
+
+	private inline fun take(expBlock: (NFABuilder) -> Unit, charBlock: (Char) -> Unit) {
+		view({
+			moveForward()
+			expBlock(it)
+		}) {
+			moveForward()
+			charBlock(it)
+		}
+	}
+
+	private inline fun takeChar(): Char = viewChar().also { moveForward() }
 
 	private inline fun error(message: String? = null): Nothing = throw RegExpException(message)
 	private inline fun unexpected(char: Char): Nothing = throw UnexpectedCharException(char)
-	private inline fun has(count: Int) = i + count <= chars.length
-	private inline fun check() = reserve(1)
+	private inline fun check() {
+		if (eof()) error("Unexpected termination")
+	}
+
 	private inline fun expect(actual: Char, expected: Char) {
 		if (actual != expected) error("Expected $expected, got ${actual.description()}")
 	}
 
-	private inline fun reserve(count: Int) {
-		if (!has(count)) error("Unexpected termination")
-	}
-
 	private inline fun readChar(): Char {
-		val char = chars[i++]
-		return if (char == '\\') {
-			check()
-			chars[i++].also { if (it !in LEGAL_ESCAPE_CHAR) throw IllegalEscapeException(it) }
-		} else char
+		val char = takeChar()
+		return if (char == '\\') takeChar().also { if (it !in LEGAL_ESCAPE_CHAR) throw IllegalEscapeException(it) }
+		else char
 	}
 
 	private fun readInt(): Int? {
-		if (i == chars.length || chars[i] !in '0'..'9') return null
+		if (eof() || viewChar() !in '0'..'9') return null
 		var ret = 0
-		while (i != chars.length) {
-			val char = chars[i]
+		while (!eof()) {
+			val char = viewChar()
 			if (char in '0'..'9') ret = ret * 10 + (char - '0')
 			else return ret
-			++i
+			moveForward()
 		}
 		return ret
 	}
 
 	private fun tryReadCharClass(): CharClass? {
-		return when (chars[i]) {
+		return when (viewChar()) {
 			'\\' -> {
-				++i
+				moveForward()
 				check()
-				val char = chars[i]
-				return when (chars[i].toLowerCase()) {
+				val char = viewChar()
+				return when (char.toLowerCase()) {
 					'w' -> CharClass.letter
 					'd' -> CharClass.digit
 					's' -> CharClass.blank
 					else -> {
-						--i
+						unget(char)
 						return null
 					}
 				}.let {
-					++i
+					moveForward()
 					if (char in 'A'..'Z') it.inverse() else it
 				}
 			}
-			'.' -> CharClass.any.also { ++i }
+			'.' -> CharClass.any.also { moveForward() }
 			else -> null
 		}
 	}
 
 	private fun readCharClass(): CharClass {
-		++i
+		moveForward()
 		check()
-		val inverse = chars[i] == '^'
-		if (inverse) ++i
+		val inverse = viewChar() == '^'
+		if (inverse) moveForward()
 		var lastChar: Char? = null
 		val readChars = charListOf()
 		val readRanges = mutableListOf<PlainCharRange>()
 		loop@ while (true) {
 			check()
-			when (chars[i]) {
+			when (viewChar()) {
 				'^' -> unexpected('^')
 				'-' -> {
-					++i
+					moveForward()
 					if (lastChar == null) {
 						readChars += '-'
 						lastChar = '-'
@@ -111,7 +166,7 @@ class RegExpParser(chars: CharSequence) {
 				}
 			}
 		}
-		++i
+		moveForward()
 		var ret = CharClass.empty
 		for (range in readRanges) ret = ret.merge(CharClass(range))
 		readChars.sort()
@@ -125,7 +180,7 @@ class RegExpParser(chars: CharSequence) {
 	}
 
 	fun readExpression(): NFABuilder {
-		++i
+		moveForward()
 		check()
 		val orList = mutableListOf<NFABuilder>()
 		var tmp = NFABuilder()
@@ -139,60 +194,72 @@ class RegExpParser(chars: CharSequence) {
 
 		loop@ while (true) {
 			check()
-			when (chars[i++]) {
-				'(' -> {
-					--i
-					commit()
-					last = readExpression()
-				}
-				')' -> {
-					commit()
-					break@loop
-				}
-				'[' -> {
-					--i
-					commit()
-					last = NFABuilder.from(readCharClass())
-				}
-				'+' -> last!!.oneOrMore().also { commit() }
-				'*' -> last!!.any().also { commit() }
-				'?' -> last!!.unnecessary().also { commit() }
-				'|' -> {
-					commit()
-					if (tmp.isEmpty()) unexpected('|')
-					orList += tmp
-					tmp = NFABuilder()
-				}
-				'{' -> {
-					val atLeast = readInt() ?: error("Expected integer")
-					check()
-					expect(chars[i++], ',')
-					check()
-					val atMost = readInt()
-					expect(chars[i++], '}')
-					if (atMost == null) last!!.repeatAtLeast(atLeast)
-					else last!!.repeat(atLeast, atMost)
-					commit()
-				}
-				else -> {
-					--i
-					val charClass = tryReadCharClass()
-					if (charClass == null) {
-						if (!lastIsChar) {
-							commit()
-							lastIsChar = true
-							last = NFABuilder()
-						}
-						last!!.append(readChar())
-					} else {
+			take({
+				commit()
+				last = it
+			}) {
+				when (it) {
+					'(' -> {
+						unget(it)
 						commit()
-						last = NFABuilder.from(charClass)
+						last = readExpression()
+					}
+					')' -> {
+						commit()
+						if (tmp.isNotEmpty()) orList += tmp
+						if (orList.size == 1) return orList[0]
+						return NFABuilder.branch(orList)
+					}
+					'[' -> {
+						unget(it)
+						commit()
+						last = NFABuilder.from(readCharClass())
+					}
+					'+' -> last!!.oneOrMore().also { commit() }
+					'*' -> last!!.any().also { commit() }
+					'?' -> last!!.unnecessary().also { commit() }
+					'|' -> {
+						commit()
+						if (tmp.isEmpty()) unexpected('|')
+						orList += tmp
+						tmp = NFABuilder()
+					}
+					'{' -> {
+						val atLeast = readInt() ?: error("Expected integer")
+						check()
+						expect(takeChar(), ',')
+						check()
+						val atMost = readInt()
+						expect(takeChar(), '}')
+						if (atMost == null) last!!.repeatAtLeast(atLeast)
+						else last!!.repeat(atLeast, atMost)
+						commit()
+					}
+					else -> {
+						unget(it)
+						val charClass = tryReadCharClass()
+						if (charClass == null) {
+							if (!lastIsChar) {
+								commit()
+								lastIsChar = true
+								last = NFABuilder()
+							}
+							last!!.append(readChar())
+						} else {
+							commit()
+							last = NFABuilder.from(charClass)
+						}
 					}
 				}
 			}
 		}
-		if (tmp.isNotEmpty()) orList += tmp
-		if (orList.size == 1) return orList[0]
-		return NFABuilder.branch(orList)
 	}
+}
+
+fun regexp(vararg arguments: Any): NFABuilder {
+	if (arguments.isEmpty()) return NFABuilder()
+	arguments.forEach {
+		if (it !is Char && it !is String && it !is NFABuilder) error("Unknown type of object: $it, expected Char, String or NFABuilder")
+	}
+	return RegExpParser(listOf('(', *arguments, ')')).readExpression()
 }

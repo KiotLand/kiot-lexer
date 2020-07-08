@@ -125,7 +125,7 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 		return this
 	}
 
-	fun appendRegExp(regexp: String) = append(RegExpParser(regexp).readExpression())
+	fun appendRegExp(regexp: String) = append(regexp(regexp))
 
 	/**
 	 * Remove unused cells (cells that cannot be reached from the begin cell) and
