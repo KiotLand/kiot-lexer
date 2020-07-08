@@ -2,24 +2,26 @@
 
 package org.kiot.util
 
-abstract class PrimitiveListBinarizer<T, RT : PrimitiveList<T>>(private val binarizer: Binarizer<T>) : Binarizer<RT>() {
+abstract class PrimitiveListBinarizer<T, RT : PrimitiveList<T>>(private val binarizer: StaticBinarizer<T>) :
+	Binarizer<RT> {
 	override fun binarize(bin: Binary, value: RT) = bin.run {
 		put(value.size)
-		for (element in value) write(element, binarizer)
+		for (element in value) put(element, binarizer)
 	}
 
 	override fun debinarize(bin: Binary): RT {
 		val size = bin.int()
 		return create(size).apply {
-			resize(size)
-			for (i in indices) this[i] = bin.read(binarizer)
+			repeat(size) {
+				add(bin.read(binarizer))
+			}
 		}
 	}
 
 	abstract fun create(size: Int): RT
 
-	override fun dynamicMeasure(value: RT): Int =
-		4 + binarizer.staticSize * value.size
+	override fun measure(value: RT): Int =
+		Int.binarySize + binarizer.binarySize * value.size
 }
 
 /**
@@ -220,14 +222,12 @@ abstract class PrimitiveList<T> : MutableList<T>, Binarizable {
 }
 
 class IntList(initialCapacity: Int = 0) : PrimitiveList<Int>() {
-	companion object : PrimitiveListBinarizer<Int, IntList>(Binary.binarizer()) {
+	companion object {
 		private val EMPTY_DATA = intArrayOf()
 
-		init {
-			Binary.register(this)
-		}
-
-		override fun create(size: Int): IntList = IntList(size)
+		val binarizer = object : PrimitiveListBinarizer<Int, IntList>(Int.binarizer) {
+			override fun create(size: Int) = IntList(size)
+		}.also { Binary.register(it) }
 	}
 
 	var elements = EMPTY_DATA
@@ -296,17 +296,13 @@ class IntList(initialCapacity: Int = 0) : PrimitiveList<Int>() {
 inline fun intListOf(vararg elements: Int): IntList =
 	IntList(elements.size).apply { addAll(elements.asList()) }
 
-inline fun emptyIntList() = IntList()
-
 class BooleanList(initialCapacity: Int = 0) : PrimitiveList<Boolean>() {
-	companion object : PrimitiveListBinarizer<Boolean, BooleanList>(Binary.binarizer()) {
+	companion object {
 		private val EMPTY_DATA = booleanArrayOf()
 
-		init {
-			Binary.register(this)
-		}
-
-		override fun create(size: Int): BooleanList = BooleanList(size)
+		val binarizer = object : PrimitiveListBinarizer<Boolean, BooleanList>(Boolean.binarizer) {
+			override fun create(size: Int) = BooleanList(size)
+		}.also { Binary.register(it) }
 	}
 
 	private var elements = EMPTY_DATA
@@ -379,17 +375,13 @@ class BooleanList(initialCapacity: Int = 0) : PrimitiveList<Boolean>() {
 inline fun booleanListOf(vararg elements: Boolean): BooleanList =
 	BooleanList(elements.size).apply { addAll(elements.asList()) }
 
-inline fun emptyBooleanList() = BooleanList()
-
 class CharList(initialCapacity: Int = 0) : PrimitiveList<Char>() {
-	companion object : PrimitiveListBinarizer<Char, CharList>(Binary.binarizer()) {
+	companion object {
 		private val EMPTY_DATA = charArrayOf()
 
-		init {
-			Binary.register(this)
-		}
-
-		override fun create(size: Int): CharList = CharList(size)
+		val binarizer = object : PrimitiveListBinarizer<Char, CharList>(Char.binarizer) {
+			override fun create(size: Int) = CharList(size)
+		}.also { Binary.register(it) }
 	}
 
 	private var elements = EMPTY_DATA
@@ -456,5 +448,3 @@ class CharList(initialCapacity: Int = 0) : PrimitiveList<Char>() {
 
 inline fun charListOf(vararg elements: Char): CharList =
 	CharList(elements.size).apply { addAll(elements.asList()) }
-
-inline fun emptyCharList() = CharList()

@@ -3,6 +3,8 @@ package org.kiot.automata
 import org.kiot.util.Binarizable
 import org.kiot.util.Binarizer
 import org.kiot.util.Binary
+import org.kiot.util.StaticBinarizer
+import org.kiot.util.binarySize
 
 /**
  * Alternative to [CharRange] in kotlin-stdlib.
@@ -21,25 +23,24 @@ import org.kiot.util.Binary
  * @author Mivik
  */
 data class PlainCharRange(val start: Char, val end: Char) : Binarizable {
-	companion object : Binarizer<PlainCharRange>() {
+	companion object {
 		val fullRange = PlainCharRange(Char.MIN_VALUE, Char.MAX_VALUE)
 		val empty = PlainCharRange(1.toChar(), 0.toChar())
 
-		init {
-			Binary.register(this)
-		}
-
-		override fun binarize(bin: Binary, value: PlainCharRange) {
-			bin.apply {
-				put(value.start)
-				put(value.end)
+		val binarizer = object : StaticBinarizer<PlainCharRange> {
+			override fun binarize(bin: Binary, value: PlainCharRange) = value.run {
+				bin.put(start)
+				bin.put(end)
 			}
-		}
 
-		override fun debinarize(bin: Binary) = PlainCharRange(bin.char(), bin.char())
+			override fun debinarize(bin: Binary) = PlainCharRange(bin.char(), bin.char())
 
-		override val actualStaticSize: Int
-			get() = 4
+			override val binarySize: Int
+				get() = Char.binarySize * 2
+		}.also { Binary.register(it) }
+
+		val binarySize: Int
+			get() = binarizer.binarySize
 	}
 
 	operator fun compareTo(other: PlainCharRange) =
@@ -78,7 +79,7 @@ fun CharRange.plain() = PlainCharRange(start, endInclusive)
  * @author Mivik
  */
 data class CharClass(val ranges: List<PlainCharRange>) : Binarizable {
-	companion object : Binarizer<CharClass>() {
+	companion object {
 		// Several useful char class constants.
 		val empty = CharClass()
 		val any = CharClass(Char.MIN_VALUE plainTo Char.MAX_VALUE)
@@ -157,15 +158,11 @@ data class CharClass(val ranges: List<PlainCharRange>) : Binarizable {
 			return CharClass(list)
 		}
 
-		init {
-			Binary.register(this)
-		}
-
-		override fun binarize(bin: Binary, value: CharClass) = bin.putList(value.ranges)
-
-		override fun debinarize(bin: Binary) = CharClass(Array(bin.int()) { bin.read<PlainCharRange>() }.asList())
-
-		override fun dynamicMeasure(value: CharClass) = 4 + value.ranges.size * 8
+		val binarizer = object : Binarizer<CharClass> {
+			override fun binarize(bin: Binary, value: CharClass) = bin.putList(value.ranges)
+			override fun debinarize(bin: Binary) = CharClass(bin.readList())
+			override fun measure(value: CharClass): Int = Binary.measureList(value.ranges)
+		}.also { Binary.register(it) }
 	}
 
 	constructor(vararg ranges: PlainCharRange) : this(ranges.asList())

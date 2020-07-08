@@ -5,9 +5,10 @@ import org.kiot.util.Binarizer
 import org.kiot.util.Binary
 import org.kiot.util.BitSet
 import org.kiot.util.IntList
-import org.kiot.util.emptyIntList
+import org.kiot.util.binarizer
+import org.kiot.util.binarySize
 import org.kiot.util.intListOf
-import org.kiot.util.measureSize
+import org.kiot.util.intListOf
 import org.kiot.util.swap
 
 sealed class DFA(protected val finalFlags: BitSet) : Binarizable {
@@ -78,32 +79,30 @@ class GeneralDFA internal constructor(
 	 */
 	finalFlags: BitSet
 ) : DFA(finalFlags) {
-	companion object : Binarizer<GeneralDFA>() {
-		init {
-			Binary.register(this)
-		}
+	companion object {
+		val binarizer = object : Binarizer<GeneralDFA> {
+			override fun binarize(bin: Binary, value: GeneralDFA) = value.run {
+				bin.put(size)
+				for (range in charRanges) bin.putList(range)
+				for (cellOuts in outs) bin.putList(cellOuts)
+				bin.put(finalFlags)
+			}
 
-		override fun binarize(bin: Binary, value: GeneralDFA) = bin.run {
-			put(value.size)
-			for (ranges in value.charRanges) putList(ranges)
-			for (outs in value.outs) putList(outs, Binary.binarizer())
-			write(value.finalFlags, BitSet)
-		}
+			override fun debinarize(bin: Binary): GeneralDFA {
+				val size = bin.int()
+				return GeneralDFA(
+					Array(size) { bin.readList(PlainCharRange.binarizer) }.asList(),
+					Array(size) { bin.intArray().asList() }.asList(),
+					bin.read()
+				)
+			}
 
-		override fun debinarize(bin: Binary): GeneralDFA {
-			val size = bin.int()
-			return GeneralDFA(
-				Array(size) { bin.readList(PlainCharRange) }.asList(),
-				Array(size) { bin.readList(Binary.binarizer<Int>()) }.asList(),
-				bin.read(BitSet)
-			)
-		}
-
-		override fun dynamicMeasure(value: GeneralDFA): Int =
-			4 + value.charRanges.sumBy { 4 + it.size * 4 } + value.outs.sumBy { 4 + it.size * 4 } + Binary.measure(
-				value.finalFlags,
-				BitSet
-			)
+			override fun measure(value: GeneralDFA): Int =
+				Int.binarySize +
+						value.charRanges.sumBy { Binary.measureList(it) } +
+						value.outs.sumBy { Binary.measureList(it) } +
+						value.finalFlags.binarySize
+		}.also { Binary.register(it) }
 	}
 
 	fun charRangesOf(cellIndex: Int) = charRanges[cellIndex]
@@ -143,7 +142,7 @@ class GeneralDFA internal constructor(
 
 	fun <T : Any> minimize(marks: List<List<T?>>?): Pair<GeneralDFA, List<List<T?>>?> {
 		var current = mutableListOf<IntList>()
-		val group = emptyIntList()
+		val group = intListOf()
 		fun transitionSet(cellIndex: Int): TransitionSet {
 			val set = TransitionSet()
 			val myRanges = charRanges[cellIndex]
@@ -155,8 +154,8 @@ class GeneralDFA internal constructor(
 			return set
 		}
 		run {
-			val ordinaryCells = emptyIntList()
-			val finalCells = emptyIntList()
+			val ordinaryCells = intListOf()
+			val finalCells = intListOf()
 			var ordinaryIndex = -1
 			var finalIndex = -1
 			var tot = 0
@@ -182,7 +181,7 @@ class GeneralDFA internal constructor(
 			for (list in current) {
 				val map = mutableMapOf<TransitionSet, IntList>()
 				for (cell in list)
-					map.getOrPut(transitionSet(cell)) { emptyIntList() } += cell
+					map.getOrPut(transitionSet(cell)) { intListOf() } += cell
 				for (pair in map) next += pair.value
 			}
 			if (current.size == next.size) break
@@ -210,7 +209,7 @@ class GeneralDFA internal constructor(
 		val newMarks = if (marks == null) null else mutableListOf<List<T?>>()
 		for (i in 0 until newSize) {
 			val myRanges = mutableListOf<PlainCharRange>()
-			val myOuts = emptyIntList()
+			val myOuts = intListOf()
 			if (marks != null) {
 				val myMarks = arrayOfNulls<Any>(current[i].first())
 				for (j in current[i].indices) {
@@ -274,7 +273,7 @@ class GeneralDFA internal constructor(
 		val topLevelCharClassTable = ByteArray(256)
 		val charClassTable: ShortArray
 		var charClassCount: Int
-		val charClassMap = emptyIntList()
+		val charClassMap = intListOf()
 		val transitionIndices: IntArray
 		val transitionIndexBegin = IntArray(size)
 		val transitions: IntArray
@@ -353,41 +352,38 @@ class CompressedDFA(
 
 	finalFlags: BitSet
 ) : DFA(finalFlags), Binarizable {
-	companion object : Binarizer<CompressedDFA>() {
-		init {
-			Binary.register(this)
-		}
+	companion object {
+		val binarizer = object : Binarizer<CompressedDFA> {
+			override fun binarize(bin: Binary, value: CompressedDFA) = bin.run {
+				put(value.charClassTable)
+				put(value.topLevelCharClassTable)
+				put(value.transitionIndices)
+				put(value.transitionIndexBegin)
+				put(value.transitions)
+				put(value.transitionBegin)
+				put(value.finalFlags)
+			}
 
-		override fun binarize(bin: Binary, value: CompressedDFA) = bin.run {
-			put(value.charClassTable)
-			put(value.topLevelCharClassTable)
-			put(value.transitionIndices)
-			put(value.transitionIndexBegin)
-			put(value.transitions)
-			put(value.transitionBegin)
-			write(value.finalFlags, BitSet)
-		}
+			override fun debinarize(bin: Binary): CompressedDFA =
+				CompressedDFA(
+					bin.shortArray(),
+					bin.byteArray(),
+					bin.intArray(),
+					bin.intArray(),
+					bin.intArray(),
+					bin.intArray(),
+					bin.read()
+				)
 
-		override fun debinarize(bin: Binary): CompressedDFA =
-			CompressedDFA(
-				bin.shortArray(),
-				bin.byteArray(),
-				bin.intArray(),
-				bin.intArray(),
-				bin.intArray(),
-				bin.intArray(),
-				bin.read(BitSet)
-			)
-
-		override fun dynamicMeasure(value: CompressedDFA): Int {
-			return Binary.measure(value.charClassTable) +
-					Binary.measure(value.topLevelCharClassTable) +
-					Binary.measure(value.transitionIndices) +
-					Binary.measure(value.transitionIndexBegin) +
-					Binary.measure(value.transitions) +
-					Binary.measure(value.transitionBegin) +
-					Binary.measure(value.finalFlags, BitSet)
-		}
+			override fun measure(value: CompressedDFA): Int =
+				value.charClassTable.binarySize +
+						value.topLevelCharClassTable.binarySize +
+						value.transitionIndices.binarySize +
+						value.transitionIndexBegin.binarySize +
+						value.transitions.binarySize +
+						value.transitionBegin.binarySize +
+						value.finalFlags.binarySize
+		}.also { Binary.register(it) }
 	}
 
 	private fun charClassIndex(char: Char) =

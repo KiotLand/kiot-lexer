@@ -1,6 +1,6 @@
 package org.kiot.automata
 
-import org.kiot.util.emptyCharList
+import org.kiot.util.charListOf
 
 open class RegExpException(override val message: String? = null) : RuntimeException()
 
@@ -84,7 +84,7 @@ class RegExpParser(chars: CharSequence) {
 		val inverse = chars[i] == '^'
 		if (inverse) ++i
 		var lastChar: Char? = null
-		val readChars = emptyCharList()
+		val readChars = charListOf()
 		val readRanges = mutableListOf<PlainCharRange>()
 		loop@ while (true) {
 			check()

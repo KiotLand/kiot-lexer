@@ -6,24 +6,23 @@ package org.kiot.util
  * @author Mivik
  */
 class BitSet private constructor(private val length: Int, private val words: LongArray) : Binarizable {
-	companion object : Binarizer<BitSet>() {
+	companion object {
 		private fun Int.wordIndex(): Int = this shr 6
 
-		init {
-			Binary.register(this)
-		}
+		val binarizer = object : Binarizer<BitSet> {
+			override fun binarize(bin: Binary, value: BitSet) = value.run {
+				bin.put(length)
+				for (word in words) bin.put(word)
+			}
 
-		override fun binarize(bin: Binary, value: BitSet) = bin.run {
-			put(value.length)
-			for (word in value.words) put(word)
-		}
+			override fun debinarize(bin: Binary): BitSet {
+				val length = bin.int()
+				return BitSet(length, LongArray((length - 1).wordIndex() + 1) { bin.long() })
+			}
 
-		override fun debinarize(bin: Binary): BitSet = bin.run {
-			val length = int()
-			BitSet(length, LongArray((length - 1).wordIndex() + 1) { bin.long() })
-		}
-
-		override fun dynamicMeasure(value: BitSet) = 4 + value.words.size * 8
+			override fun measure(value: BitSet): Int =
+				Int.binarySize + Long.binarySize * value.words.size
+		}.also { Binary.register(it) }
 	}
 
 	init {

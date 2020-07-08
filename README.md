@@ -47,10 +47,10 @@ Build a simple lexer without states and data.
 import org.kiot.automata.CharClass
 import org.kiot.automata.NFABuilder
 import org.kiot.lexer.Lexer
-import org.kiot.util.emptyIntList
+import org.kiot.util.intListOf
 
 // IntList is a better implementation of MutableList<Int>
-val list = emptyIntList()
+val list = intListOf()
 val lexer = Lexer.simple {
 	NFABuilder.from(' ') then { list.add(1) }
 	NFABuilder.from(CharClass.digit).oneOrMore() then { list.add(2) }

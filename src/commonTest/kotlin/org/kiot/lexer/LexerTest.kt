@@ -2,7 +2,7 @@ package org.kiot.lexer
 
 import org.kiot.automata.CharClass
 import org.kiot.automata.NFABuilder
-import org.kiot.util.emptyIntList
+import org.kiot.util.intListOf
 import org.kiot.util.intListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,7 +11,7 @@ import kotlin.test.assertFails
 class LexerTest {
 	@Test
 	fun test() {
-		val list = emptyIntList()
+		val list = intListOf()
 		Lexer.simple {
 			NFABuilder.from(CharClass.letter) then { list.add(1) }
 			NFABuilder.from(CharClass.digit) then { list.add(2) }
@@ -25,7 +25,7 @@ class LexerTest {
 
 	@Test
 	fun test2() {
-		val list = emptyIntList()
+		val list = intListOf()
 		val lexer = Lexer.simple {
 			NFABuilder.from(' ') then { list.add(1) }
 			NFABuilder.from(CharClass.digit).oneOrMore() then { list.add(2) }

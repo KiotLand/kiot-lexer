@@ -7,8 +7,9 @@ import org.kiot.util.BitSet
 import org.kiot.util.CircularIntQueue
 import org.kiot.util.IntList
 import org.kiot.util.MutablePair
-import org.kiot.util.emptyBooleanList
-import org.kiot.util.emptyIntList
+import org.kiot.util.binarySize
+import org.kiot.util.booleanListOf
+import org.kiot.util.intListOf
 
 /**
  * NFA stands for "Nondeterministic finite automata".
@@ -37,7 +38,7 @@ class NFA(
 	private val charClasses: MutableList<CharClass> = mutableListOf(),
 	private val outs: MutableList<IntList> = mutableListOf() // Mentioned above
 ) : Automata(), Binarizable {
-	companion object : Binarizer<NFA>() {
+	companion object {
 		fun from(vararg chars: Char) = NFABuilder.from(*chars).build()
 		fun fromSorted(vararg chars: Char) = NFABuilder.fromSorted(*chars).build()
 		fun fromSorted(chars: String) = NFABuilder.fromSorted(chars).build()
@@ -48,27 +49,25 @@ class NFA(
 
 		fun fromRegExp(regexp: String) = NFABuilder.fromRegExp(regexp).build()
 
-		init {
-			Binary.register(this)
-		}
+		val binarizer = object : Binarizer<NFA> {
+			override fun binarize(bin: Binary, value: NFA) = value.run {
+				bin.put(size)
+				for (charClass in charClasses) bin.put(charClass, CharClass.binarizer)
+				for (out in outs) bin.put(out, IntList.binarizer)
+				bin.put(beginCell)
+			}
 
-		override fun binarize(bin: Binary, value: NFA) = bin.run {
-			put(value.size)
-			for (charClass in value.charClasses) write(charClass, CharClass)
-			for (outs in value.outs) write(outs, IntList)
-			put(value.beginCell)
-		}
+			override fun debinarize(bin: Binary): NFA {
+				val size = bin.int()
+				return NFA(
+					MutableList(size) { bin.read(CharClass.binarizer) },
+					MutableList(size) { bin.read(IntList.binarizer) }
+				).also { it.beginCell = bin.int() }
+			}
 
-		override fun debinarize(bin: Binary): NFA {
-			val size = bin.int()
-			return NFA(
-				MutableList(size) { bin.read(CharClass) },
-				MutableList(size) { bin.read(IntList) }
-			).apply { beginCell = bin.int() }
-		}
-
-		override fun dynamicMeasure(value: NFA): Int =
-			8 + Binary.measureListSize(value.charClasses, CharClass) + Binary.measureListSize(value.outs, IntList)
+			override fun measure(value: NFA): Int =
+				Binary.measureList(value.charClasses) + Binary.measureList(value.outs) + Int.binarySize
+		}.also { Binary.register(it) }
 	}
 
 	fun link(from: Int, to: Int) {
@@ -128,7 +127,7 @@ class NFA(
 		val offset = size
 		charClasses += other.charClasses
 		for (i in 0 until other.size)
-			outs += other.outs[i].mapTo(emptyIntList()) { if (isFinal(it)) it else (it + offset) }
+			outs += other.outs[i].mapTo(intListOf()) { if (isFinal(it)) it else (it + offset) }
 	}
 
 	fun isDummy(cellIndex: Int) = charClasses[cellIndex].isEmpty()
@@ -144,13 +143,13 @@ class NFA(
 		this.outs[cellIndex] = outs
 	}
 
-	fun appendCell(charClass: CharClass, outs: IntList = emptyIntList()): Int {
+	fun appendCell(charClass: CharClass, outs: IntList = intListOf()): Int {
 		this.charClasses += charClass
 		this.outs += outs
 		return size - 1
 	}
 
-	fun appendDummyCell(outs: IntList = emptyIntList()): Int = appendCell(CharClass.empty, outs)
+	fun appendDummyCell(outs: IntList = intListOf()): Int = appendCell(CharClass.empty, outs)
 
 	fun clear() {
 		charClasses.clear()
@@ -169,7 +168,7 @@ class NFA(
 	class CellList(
 		private val nfa: NFA,
 		private val bitset: BitSet = BitSet(nfa.size),
-		private val list: IntList = emptyIntList(),
+		private val list: IntList = intListOf(),
 		private var finalCount: Int = 0
 	) {
 		val size: Int
@@ -301,7 +300,7 @@ class NFA(
 
 		val charRanges = mutableListOf<MutableList<PlainCharRange>>()
 		val outs = mutableListOf<MutableList<Int>>()
-		val finalFlags = emptyBooleanList()
+		val finalFlags = booleanListOf()
 		val queue = CircularIntQueue(size)
 
 		// TODO maybe use mutableMapOf(LinkedHashMap) here?
