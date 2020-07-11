@@ -50,6 +50,7 @@ kotlin {
 			dependencies {
 				implementation(kotlin("stdlib-js"))
 				implementation("com.github.KiotLand.kiot-binary:kiot-binary-js:1.0.3")
+				api(npm("text-encoding"))
 			}
 		}
 		val jsTest by getting {
