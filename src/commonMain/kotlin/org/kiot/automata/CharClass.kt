@@ -245,13 +245,7 @@ data class CharClass(val ranges: List<PlainCharRange>) : Binarizable {
 		return CharClass(list)
 	}
 
-	override fun toString(): String {
-		if (ranges.isEmpty()) return ""
-		return buildString {
-			append(ranges[0])
-			for (i in 1 until ranges.size) append(", ").append(ranges[i])
-		}
-	}
+	override fun toString(): String = "{${ranges.joinToString(", ")}}"
 
 	/**
 	 * Obtain the inverse of the [CharClass], which means chars are contained

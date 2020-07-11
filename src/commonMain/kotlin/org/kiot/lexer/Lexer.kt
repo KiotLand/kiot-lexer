@@ -19,6 +19,9 @@ class LexerMismatchException(val startIndex: Int, val endIndex: Int) : RuntimeEx
 class MarkedDFABuilder<T> {
 	private val pairs = mutableListOf<Pair<NFABuilder, (Lexer.Session<T>.() -> Unit)?>>()
 
+	inline val ignore: (Lexer.Session<T>.() -> Unit)?
+		get() = null
+
 	infix fun NFABuilder.then(listener: (Lexer.Session<T>.() -> Unit)?) {
 		pairs.add(Pair(this, listener))
 	}
@@ -84,7 +87,7 @@ class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) 
 			minimize: Boolean = false,
 			block: LexerBuilder<EmptyLexerData>.() -> Unit
 		): Lexer<EmptyLexerData> =
-			LexerBuilder<EmptyLexerData>(minimize).apply(block).build() { EmptyLexerData }
+			LexerBuilder<EmptyLexerData>(minimize).apply(block).build { EmptyLexerData }
 
 		inline fun <T> simpleWithData(
 			noinline dataGenerator: () -> T,

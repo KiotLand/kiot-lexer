@@ -91,13 +91,9 @@ class NFA(
 		).also { it.beginCell = beginCell }
 
 	private fun <T> markedPutInto(cellIndex: Int, list: CellList, marks: List<T?>): T? {
-		if (isFinal(cellIndex)) {
+		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
 			list.add(cellIndex)
 			return null
-		}
-		if (!isDummy(cellIndex)) {
-			list.add(cellIndex)
-			return marks[cellIndex]
 		}
 		var mark = marks[cellIndex]
 		for (i in outs[cellIndex]) mark = mergeMark(mark, markedPutInto(i, list, marks))
@@ -270,7 +266,9 @@ class NFA(
 				val ranges = nfa.charClasses[cell].ranges
 				val list = CellList(nfa)
 				var mark = marks[cell]
-				for (out in nfa.outs[cell]) mark = mergeMark(mark, nfa.markedPutInto(out, list, marks))
+				for (out in nfa.outs[cell]) {
+					mark = mergeMark(mark, nfa.markedPutInto(out, list, marks))
+				}
 				for (range in ranges)
 					set.add(range, MutablePair(list, mark))
 			}
@@ -288,9 +286,11 @@ class NFA(
 				first.addAll(other.first.list)
 			}
 		}
+
+		override fun toString(): String = "[${list.joinToString(", ")}]"
 	}
 
-	fun toDFA(): GeneralDFA = toDFA<Any>(null).first
+	fun toDFA(): GeneralDFA = toDFA<Nothing>(null).first
 
 	/**
 	 * Convert a NFA into DFA using Subset Construction.

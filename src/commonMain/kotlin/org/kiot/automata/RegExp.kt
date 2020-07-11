@@ -93,8 +93,14 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 
 	private inline fun readChar(): Char {
 		val char = takeChar()
-		return if (char == '\\') takeChar().also { if (it !in LEGAL_ESCAPE_CHAR) throw IllegalEscapeException(it) }
-		else char
+		if (char == '\\') {
+			view({ return char }) {
+				if (it !in LEGAL_ESCAPE_CHAR) throw IllegalEscapeException(it)
+				moveForward()
+				return it
+			}
+			error("Unreachable")
+		} else return char
 	}
 
 	private fun readInt(): Int? {
@@ -114,19 +120,21 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 			'\\' -> {
 				moveForward()
 				check()
-				val char = viewChar()
-				return when (char.toLowerCase()) {
-					'w' -> CharClass.letter
-					'd' -> CharClass.digit
-					's' -> CharClass.blank
-					else -> {
-						unget(char)
-						return null
+				view({ return null }) {
+					return when (it.toLowerCase()) {
+						'w' -> CharClass.letter
+						'd' -> CharClass.digit
+						's' -> CharClass.blank
+						else -> {
+							unget('\\')
+							return null
+						}
+					}.let { charClass ->
+						moveForward()
+						if (it in 'A'..'Z') charClass.inverse() else charClass
 					}
-				}.let {
-					moveForward()
-					if (char in 'A'..'Z') it.inverse() else it
 				}
+				error("Unreachable")
 			}
 			'.' -> CharClass.any.also { moveForward() }
 			else -> null
