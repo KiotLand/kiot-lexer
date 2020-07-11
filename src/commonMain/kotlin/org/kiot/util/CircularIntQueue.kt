@@ -5,8 +5,8 @@ package org.kiot.util
  *
  * @author Mivik
  */
-class CircularIntQueue(private val S: Int) {
-	private val elements = IntArray(S)
+class CircularIntQueue(private val maximumSize: Int) {
+	private val elements = IntArray(maximumSize)
 	private var head = 0
 	private var tail = 0
 	private var full = false
@@ -18,21 +18,22 @@ class CircularIntQueue(private val S: Int) {
 	}
 
 	fun push(element: Int) {
+		if (full) error("Out of bound.")
 		elements[tail] = element
-		if (++tail == S) tail = 0
+		if (++tail == maximumSize) tail = 0
 		if (tail == head) full = true
 	}
 
 	fun pop(): Int =
 		elements[head].also {
 			if (head == tail) full = false
-			if (++head == S) head = 0
+			if (++head == maximumSize) head = 0
 		}
 
 	fun front(): Int = elements[head]
 
 	val size: Int
-		get() = if (full) S else if (tail >= head) (tail - head) else (head - tail + S)
+		get() = if (full) maximumSize else if (tail >= head) (tail - head) else (head - tail + maximumSize)
 
 	fun isEmpty(): Boolean = (!full) && head == tail
 	fun isNotEmpty(): Boolean = full || head != tail
