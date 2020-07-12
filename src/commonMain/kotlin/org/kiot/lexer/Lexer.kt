@@ -121,7 +121,7 @@ class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) 
 		fun switchState(state: LexerState) = switchState(state.ordinal + 1)
 		fun switchState(stateIndex: Int) {
 			lexer.dfaList[stateIndex]!!.let {
-				if (it == currentDFA) return // mark here
+				if (it == currentDFA) return
 				currentDFA = it
 			}
 		}
