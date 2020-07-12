@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "org.kiot"
-version = "1.0.5.2"
+version = "1.0.5.3"
 
 repositories {
 	mavenCentral()
@@ -37,7 +37,7 @@ kotlin {
 		val commonMain by getting {
 			dependencies {
 				implementation(kotlin("stdlib-common"))
-				implementation("com.github.KiotLand.kiot-binary:kiot-binary:1.0.3")
+				api("com.github.KiotLand.kiot-binary:kiot-binary:1.0.3")
 			}
 		}
 		val commonTest by getting {
@@ -61,8 +61,8 @@ kotlin {
 		val jvmMain by getting {
 			dependencies {
 				implementation(kotlin("stdlib-jdk8"))
-				implementation("com.github.KiotLand.kiot-binary:kiot-binary-jvm:1.0.3")
-				implementation("com.github.Mivik:Kot:1.0.4")
+				api("com.github.KiotLand.kiot-binary:kiot-binary-jvm:1.0.3")
+				api("com.github.Mivik:Kot:1.0.4")
 			}
 		}
 		val jvmTest by getting {

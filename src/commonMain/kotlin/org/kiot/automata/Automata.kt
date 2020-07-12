@@ -21,7 +21,17 @@ abstract class Automata {
 	abstract fun isFinal(cellIndex: Int): Boolean
 }
 
+@Suppress("MemberVisibilityCanBePrivate")
+class MarksConflictException(val firstMark: Any, val secondMark: Any, val pattern: List<PlainCharRange>? = null) :
+	RuntimeException() {
+	override val message: String?
+		get() = "$firstMark conflicts with $secondMark${pattern.let {
+			if (it == null) ""
+			else "under this pattern: ${it.joinToString("")}"
+		}}"
+}
+
 internal fun <T> mergeMark(a: T?, b: T?): T? {
-	require((a == null || b == null) || (a == b)) { "Marks conflict: $a and $b" }
-	return a ?: b
+	if ((a == null || b == null) || (a == b)) return a ?: b
+	throw MarksConflictException(a, b)
 }

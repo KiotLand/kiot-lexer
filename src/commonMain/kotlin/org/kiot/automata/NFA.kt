@@ -10,6 +10,7 @@ import org.kiot.util.MutablePair
 import org.kiot.util.binarySize
 import org.kiot.util.booleanListOf
 import org.kiot.util.intListOf
+import kotlin.native.concurrent.ThreadLocal
 
 /**
  * NFA stands for "Nondeterministic finite automata".
@@ -167,6 +168,12 @@ class NFA(
 		private val list: IntList = intListOf(),
 		private var finalCount: Int = 0
 	) {
+		companion object {
+			// I know it's pretty dirty.. It's to avoid using try-catch!
+			@ThreadLocal
+			internal var lastRange: PlainCharRange = PlainCharRange.empty
+		}
+
 		val size: Int
 			get() = list.size
 
@@ -264,11 +271,12 @@ class NFA(
 				val ranges = nfa.charClasses[cell].ranges
 				val list = CellList(nfa)
 				var mark = marks[cell]
-				for (out in nfa.outs[cell]) {
-					mark = mergeMark(mark, nfa.markedPutInto(out, list, marks))
+				val outs = nfa.outs[cell]
+				for (index in outs.indices) {
+					lastRange = ranges[index]
+					mark = mergeMark(mark, nfa.markedPutInto(outs[index], list, marks))
 				}
-				for (range in ranges)
-					set.add(range, MutablePair(list, mark))
+				for (range in ranges) set.add(range, MutablePair(list, mark))
 			}
 			set.optimize()
 			return set
@@ -305,34 +313,49 @@ class NFA(
 		val cellMap = hashMapOf<CellList, Int>()
 		val sets = mutableListOf<CellList.TransitionSet<T>>()
 		val transitionMarks = if (marks == null) null else mutableListOf<MutableList<T?>>()
-		fun indexOf(list: CellList): Int =
+		val transitionPath = if (marks == null) null else mutableListOf<Pair<PlainCharRange, Int>?>()
+		fun indexOf(list: CellList, data: Pair<PlainCharRange, Int>?): Int =
 			cellMap[list] ?: run {
 				val index = charRanges.size
 				cellMap[list] = index
 				queue.push(index)
+				transitionMarks?.add(mutableListOf())
+				transitionPath?.add(data)
 				sets.add(if (marks == null) list.transitionSet() else list.transitionSet(marks))
 				charRanges.add(mutableListOf())
 				outs.add(mutableListOf())
-				transitionMarks?.add(mutableListOf())
 				finalFlags += list.hasFinal
 				index
 			}
 
-		CellList(this).apply {
-			putInto(beginCell, this)
-			indexOf(this)
-		}
-		while (queue.isNotEmpty()) {
-			val x = queue.pop()
-			val set = sets[x]
-			val myCharRanges = charRanges[x]
-			val myOuts = outs[x]
-			val newMarks = transitionMarks?.get(x)
-			for (pair in set) {
-				myCharRanges.add(pair.first)
-				myOuts.add(indexOf(pair.second.first))
-				newMarks?.add(pair.second.second)
+		try {
+			CellList(this).apply {
+				putInto(beginCell, this)
+				indexOf(this, null)
 			}
+			while (queue.isNotEmpty()) {
+				val x = queue.pop()
+				val set = sets[x]
+				val myCharRanges = charRanges[x]
+				val myOuts = outs[x]
+				val newMarks = transitionMarks?.get(x)
+				for (pair in set) {
+					myCharRanges.add(pair.first)
+					myOuts.add(indexOf(pair.second.first, Pair(pair.first, x)))
+					newMarks?.add(pair.second.second)
+				}
+			}
+		} catch (e: MarksConflictException) {
+			val list = mutableListOf<PlainCharRange>()
+			list.add(CellList.lastRange)
+			transitionPath!!
+			var x = transitionPath.lastIndex
+			while (x != 0) {
+				val pair = transitionPath[x] ?: break
+				list.add(pair.first)
+				x = pair.second
+			}
+			throw MarksConflictException(e.firstMark, e.secondMark, list.asReversed())
 		}
 		return Pair(
 			GeneralDFA(charRanges, outs, finalFlags.toBitSet()),

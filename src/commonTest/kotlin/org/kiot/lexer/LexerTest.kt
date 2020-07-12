@@ -1,12 +1,12 @@
 package org.kiot.lexer
 
 import org.kiot.automata.CharClass
+import org.kiot.automata.MarksConflictException
 import org.kiot.automata.NFABuilder
-import org.kiot.util.intListOf
 import org.kiot.util.intListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFails
+import kotlin.test.assertFailsWith
 
 class LexerTest {
 	@Test
@@ -74,13 +74,13 @@ class LexerTest {
 
 	@Test
 	fun testConflict() {
-		assertFails {
+		assertFailsWith<MarksConflictException> {
 			Lexer.simple {
 				NFABuilder.from(CharClass.digit) then {}
 				NFABuilder.from(CharClass.any) then {}
 			}
 		}
-		assertFails {
+		assertFailsWith<MarksConflictException> {
 			Lexer.simple {
 				NFABuilder.from("hello") then {}
 				NFABuilder.from(CharClass.letter).oneOrMore() then {}

@@ -6,6 +6,15 @@ import org.kiot.util.Binary
 import org.kiot.util.StaticBinarizer
 import org.kiot.util.binarySize
 
+fun Char.readable(): String {
+	val hexString = "0123456789abcdef"
+	return if (this in ' '..'~') toString()
+	else {
+		val int = toInt()
+		"\\u${hexString[(int ushr 12) and 15]}${hexString[(int ushr 8) and 15]}${hexString[(int ushr 4) and 15]}${hexString[int and 15]}"
+	}
+}
+
 /**
  * Alternative to [CharRange] in kotlin-stdlib.
  *
@@ -50,7 +59,7 @@ data class PlainCharRange(val start: Char, val end: Char) : Binarizable {
 
 	operator fun contains(char: Char): Boolean = char in start..end
 
-	override fun toString(): String = "[$start..$end]"
+	override fun toString(): String = "[${start.readable()}..${end.readable()}]"
 
 	fun copy() = PlainCharRange(start, end)
 
