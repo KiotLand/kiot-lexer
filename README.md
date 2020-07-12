@@ -1,7 +1,7 @@
 <h1 align="center">kiot-lexer</h1>
 <h4 align="center">A state-based grateful lexer written in Kotlin. </h4>
 <p>
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.5.1-blue.svg?cacheSeconds=2592000" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.5.2-blue.svg?cacheSeconds=2592000" />
   <a href="./LICENSE.md" target="_blank">
     <img alt="License: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-yellow.svg" />
   </a>
@@ -34,7 +34,7 @@ allprojects {
 }
 
 dependencies {
-	implementation 'com.github.KiotLand.kiot-lexer:kiot-lexer:1.0.5.1'
+	implementation 'com.github.KiotLand.kiot-lexer:kiot-lexer:1.0.5.2'
 	// kiot-lexer-js and kiot-lexer-jvm are also alternatives.
 }
 ```

@@ -175,7 +175,7 @@ class NFA(
 
 		fun add(element: Int) {
 			if (nfa.isFinal(element)) {
-				if (finalCount++ == 0) list.add(element)
+				++finalCount
 				return
 			}
 			if (bitset[element]) return
@@ -189,7 +189,7 @@ class NFA(
 
 		fun remove(element: Int) {
 			if (nfa.isFinal(element)) {
-				if (--finalCount == 0) list.remove(element)
+				--finalCount
 				return
 			}
 			if (!bitset[element]) return
@@ -248,7 +248,6 @@ class NFA(
 		internal fun <T> transitionSet(): TransitionSet<T> {
 			val set = TransitionSet<T>()
 			for (cell in this) {
-				if (nfa.isFinal(cell)) continue
 				val ranges = nfa.charClasses[cell].ranges
 				val list = CellList(nfa)
 				for (out in nfa.outs[cell]) nfa.putInto(out, list)
@@ -262,7 +261,6 @@ class NFA(
 		internal fun <T> transitionSet(marks: List<T?>): TransitionSet<T> {
 			val set = TransitionSet<T>()
 			for (cell in this) {
-				if (nfa.isFinal(cell)) continue
 				val ranges = nfa.charClasses[cell].ranges
 				val list = CellList(nfa)
 				var mark = marks[cell]

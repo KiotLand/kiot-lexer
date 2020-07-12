@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "org.kiot"
-version = "1.0.5.1"
+version = "1.0.5.2"
 
 repositories {
 	mavenCentral()
@@ -49,7 +49,7 @@ kotlin {
 		val jsMain by getting {
 			dependencies {
 				implementation(kotlin("stdlib-js"))
-				implementation("com.github.KiotLand.kiot-binary:kiot-binary-js:1.0.3")
+				api("com.github.KiotLand.kiot-binary:kiot-binary-js:1.0.3")
 				api(npm("text-encoding"))
 			}
 		}
