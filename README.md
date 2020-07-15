@@ -17,9 +17,9 @@ A state-based lexer written in pure Kotlin.
 
 To create lexers in pure Kotlin without other languages like jflex or ANTLR.
 
-kiot-lexer implemented almost everything from automata ( NFA and DFA ) to RegExp parsing ( not stable ), which provides you efficiency beyond ordinary lexer implementations.
+kiot-lexer implemented almost everything from automata (NFA and DFA) to RegExp parsing (not stable), which provides you efficiency beyond ordinary lexer implementations.
 
-Also, kiot-lexer is a Kotlin MPP ( multi-platform ) project, which means you can use it almost everywhere: JVM, Native, Web... Don't limit your imagination!
+Also, kiot-lexer is a Kotlin MPP (multi-platform) project, which means you can use it almost everywhere: JVM, Native, Web... Don't limit your imagination!
 
 ## Example & Usage?
 
@@ -68,7 +68,7 @@ val lexer = Lexer.simple {
 
 list.clear()
 lexer.lex("i have 2 ideas")
-// lexer = [3, 1, 3, 1, 2, 1, 3]
+// list = [3, 1, 3, 1, 2, 1, 3]
 
 list.clear()
 lexer.lex("!!")
@@ -87,7 +87,7 @@ data class SimpleData(val words: MutableList<String> = mutableListOf(), val numb
 val lexer = Lexer.simpleWithData({ SimpleData() }) {
 	"\\w+" then { data.words += string() }
 	"\\d+" then { data.numbers += string().toInt() }
-	" " then null // We accept space but do nothing
+	" " then ignore // We accept space but do nothing
 }
 
 val data = lexer.lex("number 42 is the answer")
@@ -101,7 +101,7 @@ val data = lexer.lex("number 42 is the answer")
 
 #### Example 3. Switching states
 
-We may have some states in your lexer, like the state in a string, the state in a method body or something else. We can switch between these states like this:
+You may have some states in your lexer, like the state in a string, the state in a method body or something else. We can switch between these states like this:
 
 ```kotlin
 import org.kiot.lexer.LexerState
@@ -123,6 +123,43 @@ lexer.lex("KiotLand: A land where Kotlin lovers gather.")
     word: KiotLand
     definition: A land where Kotlin lovers gather.
 */
+```
+
+#### Example 4. Lexer building options
+
+Have a look at the following example:
+
+```kotlin
+import org.kiot.lexer.Lexer
+
+val lexer = Lexer.simple {
+	// `withName` gives this rule a name so we can debug more clearly
+	"\\d" then { println("a digit") } withName "digit"
+	"." then { println("a char") } withName "any"
+}
+
+/*
+	org.kiot.automata.MarksConflictException:
+		FunctionMark(digit) conflicts with FunctionMark(any) under this pattern: [0..9]
+*/
+```
+
+The lexer above can recognize pattern [0..9] as either "digit" or "any", so we got an error. In kiot-lexer, we promote avoiding creating conflicts in your lexer, but, if you want the rules in your lexer to be checked in the order they are defined, you can use:
+
+```kotlin
+import org.kiot.lexer.Lexer
+
+val lexer = Lexer.simple {
+	options.strict = false
+	"\\d" then { println("a digit") } withName "digit"
+	"." then { println("a char") } withName "any"
+}
+
+lexer.lex("1")
+// output: a digit
+
+lexer.lex("d")
+// output: a char
 ```
 
 ## Notice

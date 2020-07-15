@@ -33,7 +33,7 @@ class MarksConflictException(val firstMark: Mark, val secondMark: Mark, val patt
 	override val message: String?
 		get() = "$firstMark conflicts with $secondMark${pattern.let {
 			if (it == null) ""
-			else "under this pattern: ${it.joinToString("")}"
+			else " under this pattern: ${it.joinToString("")}"
 		}}"
 }
 

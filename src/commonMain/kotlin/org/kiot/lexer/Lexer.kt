@@ -17,9 +17,9 @@ class LexerMismatchException(val startIndex: Int, val endIndex: Int) : RuntimeEx
 		get() = "Mismatch in [$startIndex, $endIndex]"
 }
 
-data class LexerSettings(var minimize: Boolean = false, var strict: Boolean = true)
+data class LexerOptions(var minimize: Boolean = false, var strict: Boolean = true)
 
-class MarkedDFABuilder<T>(val settings: LexerSettings = LexerSettings()) {
+class MarkedDFABuilder<T>(val options: LexerOptions = LexerOptions()) {
 	class NamedFunctionMark<T>(val function: Lexer.Session<T>.() -> Unit, var name: String = function.toString()) :
 		Mark {
 		override fun merge(other: Mark): Mark = this
@@ -31,7 +31,9 @@ class MarkedDFABuilder<T>(val settings: LexerSettings = LexerSettings()) {
 
 		override fun toString(): String = "FunctionMark($name)"
 
-		infix fun named(name: String): NamedFunctionMark<T> = NamedFunctionMark(function, name)
+		infix fun withName(name: String) {
+			this.name = name
+		}
 	}
 
 	class PriorityMark<T : Mark>(val priority: Int, val mark: T) : Mark {
@@ -60,9 +62,8 @@ class MarkedDFABuilder<T>(val settings: LexerSettings = LexerSettings()) {
 	}
 
 	// RegExp
-	infix fun String.then(listener: Lexer.Session<T>.() -> Unit) {
-		pairs.add(Pair(NFABuilder.fromRegExp(this), NamedFunctionMark(listener)))
-	}
+	infix fun String.then(listener: Lexer.Session<T>.() -> Unit): NamedFunctionMark<T> =
+		NamedFunctionMark(listener).also { pairs.add(Pair(NFABuilder.fromRegExp(this), it)) }
 
 	infix fun String.then(mark: NamedFunctionMark<T>?) {
 		pairs.add(Pair(NFABuilder.fromRegExp(this), mark))
@@ -78,7 +79,7 @@ class MarkedDFABuilder<T>(val settings: LexerSettings = LexerSettings()) {
 		val beginOuts = nfa.outsOf(newBegin)
 		val newEnd = nfa.appendDummyCell()
 		val marks = arrayOfNulls<Mark>(pairs.sumBy { it.first.size } + 2)
-		val strict = settings.strict
+		val strict = options.strict
 		for (index in pairs.indices) {
 			val pair = pairs[index]
 			beginOuts += pair.first.beginCell + nfa.size
@@ -89,7 +90,7 @@ class MarkedDFABuilder<T>(val settings: LexerSettings = LexerSettings()) {
 		}
 		builder.makeEnd(newEnd)
 		var (dfa, newMarks) = builder.build().toDFA(marks.asList())
-		if (settings.minimize) {
+		if (options.minimize) {
 			val pair = dfa.minimize(newMarks)
 			dfa = pair.first
 			newMarks = pair.second
@@ -97,11 +98,13 @@ class MarkedDFABuilder<T>(val settings: LexerSettings = LexerSettings()) {
 		newMarks!!
 		require(!dfa.isFinal(dfa.beginCell)) { "The DFA built from NFA can match empty string, which is not permitted." }
 		return if (strict) MarkedGeneralDFA(dfa, newMarks as List<List<NamedFunctionMark<T>?>>)
-		else MarkedGeneralDFA(dfa, newMarks.map { it.map { each -> (each as PriorityMark<NamedFunctionMark<T>>).mark } })
+		else MarkedGeneralDFA(
+			dfa,
+			newMarks.map { it.map { each -> (each as PriorityMark<NamedFunctionMark<T>>).mark } })
 	}
 }
 
-class LexerBuilder<T>(val settings: LexerSettings = LexerSettings()) {
+class LexerBuilder<T>(val options: LexerOptions = LexerOptions()) {
 	private val markedDFAs = mutableListOf<MarkedDFA<*, T>?>()
 
 	val default: Int
@@ -111,7 +114,7 @@ class LexerBuilder<T>(val settings: LexerSettings = LexerSettings()) {
 
 	fun state(stateIndex: Int, block: MarkedDFABuilder<T>.() -> Unit) {
 		while (markedDFAs.size <= stateIndex) markedDFAs.add(null)
-		markedDFAs[stateIndex] = MarkedDFABuilder<T>(settings).apply(block).build()
+		markedDFAs[stateIndex] = MarkedDFABuilder<T>(options).apply(block).build()
 	}
 
 	fun build(dataGenerator: () -> T) = Lexer(markedDFAs, dataGenerator)

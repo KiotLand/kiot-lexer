@@ -92,7 +92,7 @@ class LexerTest {
 	fun testNonConflict() {
 		var type: Int
 		Lexer.simple {
-			settings.strict = false
+			options.strict = false
 			NFABuilder.from(CharClass.digit) then { type = 1 }
 			NFABuilder.from(CharClass.any) then { type = 2 }
 		}.apply {
@@ -111,7 +111,7 @@ class LexerTest {
 		data class Word(var name: String, var definition: String)
 
 		val lexer = Lexer.buildWithData({ Word("", "") }) {
-			settings.minimize = true
+			options.minimize = true
 			state(default) {
 				NFABuilder.from(": ") then { switchState(1) }
 				NFABuilder.from(CharClass.letter).oneOrMore() then { data.name = string() }
@@ -138,7 +138,7 @@ class LexerTest {
 		)
 
 		val lexer = Lexer.buildWithData({ Data() }) {
-			settings.minimize = true
+			options.minimize = true
 			state(default) {
 				"[^\" ]+" then { data.identifiers += string() }
 				" " then null
