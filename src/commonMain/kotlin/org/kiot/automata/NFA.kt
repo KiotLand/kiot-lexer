@@ -91,7 +91,7 @@ class NFA(
 			outs.mapTo(mutableListOf()) { it.copy() }
 		).also { it.beginCell = beginCell }
 
-	private fun <T> markedPutInto(cellIndex: Int, list: CellList, marks: List<T?>): T? {
+	private fun <T : Mark> markedPutInto(cellIndex: Int, list: CellList, marks: List<T?>): T? {
 		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
 			list.add(cellIndex)
 			return null
@@ -252,7 +252,7 @@ class NFA(
 			override fun next(): Int = list[index++]
 		}
 
-		internal fun <T> transitionSet(): TransitionSet<T> {
+		internal fun <T : Mark> transitionSet(): TransitionSet<T> {
 			val set = TransitionSet<T>()
 			for (cell in this) {
 				val ranges = nfa.charClasses[cell].ranges
@@ -265,7 +265,7 @@ class NFA(
 			return set
 		}
 
-		internal fun <T> transitionSet(marks: List<T?>): TransitionSet<T> {
+		internal fun <T : Mark> transitionSet(marks: List<T?>): TransitionSet<T> {
 			val set = TransitionSet<T>()
 			for (cell in this) {
 				val ranges = nfa.charClasses[cell].ranges
@@ -282,7 +282,7 @@ class NFA(
 			return set
 		}
 
-		internal class TransitionSet<T> :
+		internal class TransitionSet<T : Mark> :
 			org.kiot.automata.TransitionSet<MutablePair<CellList, T?>>() {
 			override fun copy(element: MutablePair<CellList, T?>) =
 				MutablePair(element.first.copy(), element.second)
@@ -301,7 +301,7 @@ class NFA(
 	/**
 	 * Convert a NFA into DFA using Subset Construction.
 	 */
-	fun <T> toDFA(marks: List<T?>?): Pair<GeneralDFA, List<List<T?>>?> {
+	fun <T : Mark> toDFA(marks: List<T?>?): Pair<GeneralDFA, List<List<T?>>?> {
 		require(marks == null || marks.size == size)
 
 		val charRanges = mutableListOf<MutableList<PlainCharRange>>()

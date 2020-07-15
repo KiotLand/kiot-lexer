@@ -138,9 +138,9 @@ class GeneralDFA internal constructor(
 		}
 	}
 
-	fun minimize() = minimize<Any>(null).first
+	fun minimize() = minimize<Nothing>(null).first
 
-	fun <T : Any> minimize(marks: List<List<T?>>?): Pair<GeneralDFA, List<List<T?>>?> {
+	fun <T : Mark> minimize(marks: List<List<T?>>?): Pair<GeneralDFA, List<List<T?>>?> {
 		var current = mutableListOf<IntList>()
 		val group = intListOf()
 		fun transitionSet(cellIndex: Int): TransitionSet {
@@ -211,7 +211,7 @@ class GeneralDFA internal constructor(
 			val myRanges = mutableListOf<PlainCharRange>()
 			val myOuts = intListOf()
 			if (marks != null) {
-				val myMarks = arrayOfNulls<Any>(current[i].first())
+				val myMarks = arrayOfNulls<Mark>(current[i].first())
 				for (j in current[i].indices) {
 					val cell = current[i][j]
 					val tmp = marks[cell]

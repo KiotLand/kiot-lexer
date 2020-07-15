@@ -89,10 +89,29 @@ class LexerTest {
 	}
 
 	@Test
+	fun testNonConflict() {
+		var type: Int
+		Lexer.simple {
+			settings.strict = false
+			NFABuilder.from(CharClass.digit) then { type = 1 }
+			NFABuilder.from(CharClass.any) then { type = 2 }
+		}.apply {
+			type = 0
+			lex("1")
+			assertEquals(type, 1)
+
+			type = 0
+			lex("a")
+			assertEquals(type, 2)
+		}
+	}
+
+	@Test
 	fun testNormal() {
 		data class Word(var name: String, var definition: String)
 
-		val lexer = Lexer.buildWithData({ Word("", "") }, minimize = true) {
+		val lexer = Lexer.buildWithData({ Word("", "") }) {
+			settings.minimize = true
 			state(default) {
 				NFABuilder.from(": ") then { switchState(1) }
 				NFABuilder.from(CharClass.letter).oneOrMore() then { data.name = string() }
@@ -118,7 +137,8 @@ class LexerTest {
 			val strings: MutableList<String> = mutableListOf()
 		)
 
-		val lexer = Lexer.buildWithData({ Data() }, minimize = true) {
+		val lexer = Lexer.buildWithData({ Data() }) {
+			settings.minimize = true
 			state(default) {
 				"[^\" ]+" then { data.identifiers += string() }
 				" " then null

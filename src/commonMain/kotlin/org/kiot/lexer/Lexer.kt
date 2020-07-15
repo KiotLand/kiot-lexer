@@ -1,6 +1,7 @@
 package org.kiot.lexer
 
 import org.kiot.automata.GeneralDFA
+import org.kiot.automata.Mark
 import org.kiot.automata.MarkedDFA
 import org.kiot.automata.MarkedGeneralDFA
 import org.kiot.automata.NFABuilder
@@ -16,22 +17,59 @@ class LexerMismatchException(val startIndex: Int, val endIndex: Int) : RuntimeEx
 		get() = "Mismatch in [$startIndex, $endIndex]"
 }
 
-class MarkedDFABuilder<T> {
-	private val pairs = mutableListOf<Pair<NFABuilder, (Lexer.Session<T>.() -> Unit)?>>()
+data class LexerSettings(var minimize: Boolean = false, var strict: Boolean = true)
+
+class MarkedDFABuilder<T>(val settings: LexerSettings = LexerSettings()) {
+	class NamedFunctionMark<T>(val function: Lexer.Session<T>.() -> Unit, var name: String = function.toString()) :
+		Mark {
+		override fun merge(other: Mark): Mark = this
+
+		override fun canMerge(other: Mark): Boolean {
+			if (other !is NamedFunctionMark<*>) return false
+			return function == other.function && name == other.name
+		}
+
+		override fun toString(): String = "FunctionMark($name)"
+
+		infix fun named(name: String): NamedFunctionMark<T> = NamedFunctionMark(function, name)
+	}
+
+	class PriorityMark<T : Mark>(val priority: Int, val mark: T) : Mark {
+		override fun merge(other: Mark): Mark {
+			other as PriorityMark<*>
+			return if (priority < other.priority) this
+			else other
+		}
+
+		override fun canMerge(other: Mark): Boolean = other is PriorityMark<*>
+
+		override fun toString(): String = "PriorityMark($priority, $mark)"
+	}
+
+	private val pairs = mutableListOf<Pair<NFABuilder, NamedFunctionMark<T>?>>()
 
 	inline val ignore: (Lexer.Session<T>.() -> Unit)?
 		get() = null
 
-	infix fun NFABuilder.then(listener: (Lexer.Session<T>.() -> Unit)?) {
-		pairs.add(Pair(this, listener))
+	infix fun NFABuilder.then(listener: Lexer.Session<T>.() -> Unit) {
+		pairs.add(Pair(this, NamedFunctionMark(listener)))
+	}
+
+	infix fun NFABuilder.then(mark: NamedFunctionMark<T>?) {
+		pairs.add(Pair(this, mark))
 	}
 
 	// RegExp
-	infix fun String.then(listener: (Lexer.Session<T>.() -> Unit)?) {
-		pairs.add(Pair(NFABuilder.fromRegExp(this), listener))
+	infix fun String.then(listener: Lexer.Session<T>.() -> Unit) {
+		pairs.add(Pair(NFABuilder.fromRegExp(this), NamedFunctionMark(listener)))
 	}
 
-	fun build(minimize: Boolean): MarkedDFA<GeneralDFA, T> {
+	infix fun String.then(mark: NamedFunctionMark<T>?) {
+		pairs.add(Pair(NFABuilder.fromRegExp(this), mark))
+	}
+
+	@Suppress("UNCHECKED_CAST")
+	fun build(): MarkedDFA<GeneralDFA, T> {
 		require(pairs.isNotEmpty()) { "DFA used for lexer can not be empty" }
 		val builder = NFABuilder()
 		val nfa = builder.nfa
@@ -39,27 +77,31 @@ class MarkedDFABuilder<T> {
 		builder.extend(newBegin)
 		val beginOuts = nfa.outsOf(newBegin)
 		val newEnd = nfa.appendDummyCell()
-		val marks = arrayOfNulls<Lexer.Session<T>.() -> Unit>(pairs.sumBy { it.first.size } + 2)
-		for (pair in pairs) {
+		val marks = arrayOfNulls<Mark>(pairs.sumBy { it.first.size } + 2)
+		val strict = settings.strict
+		for (index in pairs.indices) {
+			val pair = pairs[index]
 			beginOuts += pair.first.beginCell + nfa.size
 			builder.include(pair.first)
 			nfa.link(builder.endCell, newEnd)
-			marks[builder.endCell] = pair.second
+			marks[builder.endCell] =
+				if (strict) pair.second else pair.second?.let { PriorityMark(index, it) }
 		}
 		builder.makeEnd(newEnd)
 		var (dfa, newMarks) = builder.build().toDFA(marks.asList())
-		if (minimize) {
+		if (settings.minimize) {
 			val pair = dfa.minimize(newMarks)
 			dfa = pair.first
 			newMarks = pair.second
 		}
 		newMarks!!
 		require(!dfa.isFinal(dfa.beginCell)) { "The DFA built from NFA can match empty string, which is not permitted." }
-		return MarkedGeneralDFA(dfa, newMarks)
+		return if (strict) MarkedGeneralDFA(dfa, newMarks as List<List<NamedFunctionMark<T>?>>)
+		else MarkedGeneralDFA(dfa, newMarks.map { it.map { each -> (each as PriorityMark<NamedFunctionMark<T>>).mark } })
 	}
 }
 
-class LexerBuilder<T>(private val minimize: Boolean) {
+class LexerBuilder<T>(val settings: LexerSettings = LexerSettings()) {
 	private val markedDFAs = mutableListOf<MarkedDFA<*, T>?>()
 
 	val default: Int
@@ -69,7 +111,7 @@ class LexerBuilder<T>(private val minimize: Boolean) {
 
 	fun state(stateIndex: Int, block: MarkedDFABuilder<T>.() -> Unit) {
 		while (markedDFAs.size <= stateIndex) markedDFAs.add(null)
-		markedDFAs[stateIndex] = MarkedDFABuilder<T>().apply(block).build(minimize)
+		markedDFAs[stateIndex] = MarkedDFABuilder<T>(settings).apply(block).build()
 	}
 
 	fun build(dataGenerator: () -> T) = Lexer(markedDFAs, dataGenerator)
@@ -78,30 +120,26 @@ class LexerBuilder<T>(private val minimize: Boolean) {
 class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) {
 	companion object {
 		inline fun simple(
-			minimize: Boolean = false,
 			block: MarkedDFABuilder<EmptyLexerData>.() -> Unit
 		): Lexer<EmptyLexerData> =
-			Lexer(listOf(MarkedDFABuilder<EmptyLexerData>().apply(block).build(minimize))) { EmptyLexerData }
+			Lexer(listOf(MarkedDFABuilder<EmptyLexerData>().apply(block).build())) { EmptyLexerData }
 
 		inline fun build(
-			minimize: Boolean = false,
 			block: LexerBuilder<EmptyLexerData>.() -> Unit
 		): Lexer<EmptyLexerData> =
-			LexerBuilder<EmptyLexerData>(minimize).apply(block).build { EmptyLexerData }
+			LexerBuilder<EmptyLexerData>().apply(block).build { EmptyLexerData }
 
 		inline fun <T> simpleWithData(
 			noinline dataGenerator: () -> T,
-			minimize: Boolean = false,
 			block: MarkedDFABuilder<T>.() -> Unit
 		): Lexer<T> =
-			Lexer(listOf(MarkedDFABuilder<T>().apply(block).build(minimize)), dataGenerator)
+			Lexer(listOf(MarkedDFABuilder<T>().apply(block).build()), dataGenerator)
 
 		inline fun <T> buildWithData(
 			noinline dataGenerator: () -> T,
-			minimize: Boolean = false,
 			block: LexerBuilder<T>.() -> Unit
 		): Lexer<T> =
-			LexerBuilder<T>(minimize).apply(block).build(dataGenerator)
+			LexerBuilder<T>().apply(block).build(dataGenerator)
 	}
 
 	init {

@@ -1,15 +1,16 @@
 package org.kiot.automata
 
 import org.kiot.lexer.Lexer
+import org.kiot.lexer.MarkedDFABuilder
 
 sealed class MarkedDFA<D : DFA, T>(val dfa: D) {
 	abstract fun transit(session: Lexer.Session<T>, cellIndex: Int, transitionIndex: Int)
 }
 
-class MarkedGeneralDFA<T>(dfa: GeneralDFA, private val marks: List<List<(Lexer.Session<T>.() -> Unit)?>>) :
+class MarkedGeneralDFA<T>(dfa: GeneralDFA, private val marks: List<List<MarkedDFABuilder.NamedFunctionMark<T>?>>) :
 	MarkedDFA<GeneralDFA, T>(dfa) {
 	override fun transit(session: Lexer.Session<T>, cellIndex: Int, transitionIndex: Int) {
-		marks[cellIndex][transitionIndex]?.invoke(session)
+		marks[cellIndex][transitionIndex]?.function?.invoke(session)
 	}
 }
 

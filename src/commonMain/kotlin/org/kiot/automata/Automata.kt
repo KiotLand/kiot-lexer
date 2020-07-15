@@ -21,8 +21,14 @@ abstract class Automata {
 	abstract fun isFinal(cellIndex: Int): Boolean
 }
 
+interface Mark {
+	fun merge(other: Mark): Mark
+
+	fun canMerge(other: Mark): Boolean
+}
+
 @Suppress("MemberVisibilityCanBePrivate")
-class MarksConflictException(val firstMark: Any, val secondMark: Any, val pattern: List<PlainCharRange>? = null) :
+class MarksConflictException(val firstMark: Mark, val secondMark: Mark, val pattern: List<PlainCharRange>? = null) :
 	RuntimeException() {
 	override val message: String?
 		get() = "$firstMark conflicts with $secondMark${pattern.let {
@@ -31,7 +37,9 @@ class MarksConflictException(val firstMark: Any, val secondMark: Any, val patter
 		}}"
 }
 
-internal fun <T> mergeMark(a: T?, b: T?): T? {
-	if ((a == null || b == null) || (a == b)) return a ?: b
+@Suppress("UNCHECKED_CAST")
+internal fun <T : Mark> mergeMark(a: T?, b: T?): T? {
+	if (a == null || b == null) return a ?: b
+	if (a.canMerge(b)) return a.merge(b) as T?
 	throw MarksConflictException(a, b)
 }
