@@ -144,7 +144,7 @@ val lexer = Lexer.simple {
 */
 ```
 
-The lexer above can recognize pattern [0..9] as either "digit" or "any", so we got an error. In kiot-lexer, we promote avoiding creating conflicts in your lexer, but, if you want the rules in your lexer to be checked in the order they are defined, you can use:
+The lexer above can recognize pattern [0..9] as either "digit" or "any", so we got an error. In kiot-lexer, we promote avoiding creating conflicts in your lexer. However, if you want the rules in your lexer to be checked in the order they are defined, you can use:
 
 ```kotlin
 import org.kiot.lexer.Lexer
