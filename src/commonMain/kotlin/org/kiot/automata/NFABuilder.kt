@@ -125,7 +125,7 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 		return this
 	}
 
-	fun appendRegExp(regexp: String) = append(regexp(regexp))
+	fun appendRegExp(regexp: String) = append(regexp.regexp())
 
 	/**
 	 * Remove unused cells (cells that cannot be reached from the begin cell) and
@@ -181,6 +181,9 @@ class NFABuilder(val nfa: NFA = NFA(), var endCell: Int = 0) {
 		endCell = map[endCell]
 		return ret
 	}
+
+	fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
+	fun match(chars: Iterator<Char>, exact: Boolean = true) = nfa.match(chars, exact)
 
 	fun build() = nfa
 

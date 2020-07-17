@@ -30,7 +30,6 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 
 	private fun eof() = index == elements.size
 	private fun initialStringIndex() = when (elements[index]) {
-		is Char -> -2
 		is NFABuilder -> -1
 		else -> 0
 	}
@@ -42,7 +41,7 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 		}
 		if (stringIndex >= 0 && ++stringIndex != (elements[index] as String).length) return
 		stringIndex =
-			if (++index == elements.size) -3
+			if (++index == elements.size) -2
 			else initialStringIndex()
 	}
 
@@ -58,7 +57,6 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 			return
 		}
 		when (stringIndex) {
-			-2 -> charBlock(elements[index] as Char)
 			-1 -> expBlock(elements[index] as NFABuilder)
 			else -> charBlock((elements[index] as String)[stringIndex])
 		}
@@ -264,10 +262,36 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 	}
 }
 
-fun regexp(vararg arguments: Any): NFABuilder {
-	if (arguments.isEmpty()) return NFABuilder()
-	arguments.forEach {
-		if (it !is Char && it !is String && it !is NFABuilder) error("Unknown type of object: $it, expected Char, String or NFABuilder")
+fun Char.regexp(): NFABuilder = RegExpParser(listOf("($this)")).readExpression()
+fun String.regexp(): NFABuilder = RegExpParser(listOf("($this)")).readExpression()
+
+/**
+ * Allow using plus operator to concat [NFABuilder] and [String].
+ *
+ * As the name mentioned, it's temporary and will change after calling plus
+ * operator on it. Note that the content of a [TemporaryRegExpBuilder] will be
+ * cleared after calling [build].
+ */
+class TemporaryRegExpBuilder {
+	private val list: MutableList<Any> = mutableListOf("(")
+
+	operator fun plus(string: String): TemporaryRegExpBuilder = apply {
+		list += string
 	}
-	return RegExpParser(listOf('(', *arguments, ')')).readExpression()
+
+	operator fun plus(nfa: NFABuilder): TemporaryRegExpBuilder = apply {
+		list += nfa
+	}
+
+	operator fun plus(other: TemporaryRegExpBuilder): TemporaryRegExpBuilder = apply {
+		list.addAll(other.list)
+	}
+
+	fun build(): NFABuilder {
+		list += ")"
+		return RegExpParser(list).readExpression().also { list.clear() }
+	}
 }
+
+val RegExp: TemporaryRegExpBuilder
+	get() = TemporaryRegExpBuilder()

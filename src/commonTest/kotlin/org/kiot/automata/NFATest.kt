@@ -243,9 +243,9 @@ internal class NFATest {
 	@Test
 	fun testComposedRegExp() {
 		run {
-			val number = regexp("\\d+")
-			val word = regexp("\\w+")
-			regexp("((", number, "|", word, ") )+").build().apply {
+			val number = "\\d+".regexp()
+			val word = "\\w+".regexp()
+			(RegExp + "((" + number + "|" + word + ") )+").build().apply {
 				assertTrue(match("i have a dream "))
 				assertTrue(match("42 is a mysterious number "))
 			}
