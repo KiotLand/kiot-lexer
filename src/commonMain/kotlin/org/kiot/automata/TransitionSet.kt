@@ -51,7 +51,7 @@ internal abstract class TransitionSet<T : Any> : Iterable<Pair<PlainCharRange, T
 			targets[i] = targets[i].run {
 				if (this == null) copy(target)
 				else {
-					NFA.CellList.lastRange = ranges[i]
+					StaticNFA.CellList.lastRange = ranges[i]
 					merge(target)
 					this
 				}

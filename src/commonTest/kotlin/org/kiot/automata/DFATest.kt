@@ -9,34 +9,34 @@ import kotlin.test.assertTrue
 internal class DFATest {
 	@Test
 	fun test() {
-		NFA.from("1234").toDFA().apply {
+		StaticNFA.from("1234").toDFA().apply {
 			// () --1-> () --2-> () --3--> () --4-> (F)
 			assertEquals(5, size)
 			assertTrue(match("1234"))
 		}
-		NFABuilder.branch(
-			NFABuilder.from("kotlin"),
-			NFABuilder.from("kiot")
-		).build().toDFA().apply {
+		NFA.branch(
+			NFA.from("kotlin"),
+			NFA.from("kiot")
+		).static().toDFA().apply {
 			assertTrue(match("kotlin"))
 			assertTrue(match("kiot"))
 			assertFalse(match("kot"))
 		}
-		NFABuilder.from("0").oneOrMore().build().toDFA().apply {
+		NFA.from("0").oneOrMore().static().toDFA().apply {
 			assertTrue(match("0000"))
 			assertTrue(match("0"))
 			assertFalse(match(""))
 			assertFalse(match("1"))
 		}
-		NFABuilder.from("0").any().build().toDFA().apply {
+		NFA.from("0").any().static().toDFA().apply {
 			assertTrue(match("0000"))
 			assertTrue(match(""))
 			assertFalse(match("1"))
 		}
-		NFABuilder.branch(
-			NFABuilder.from("a "),
-			NFABuilder.from("b ")
-		).any().build().toDFA().apply {
+		NFA.branch(
+			NFA.from("a "),
+			NFA.from("b ")
+		).any().static().toDFA().apply {
 			assertTrue(match("a b "))
 			assertTrue(match("b b a "))
 			assertTrue(match(""))

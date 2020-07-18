@@ -5,9 +5,7 @@ import org.kiot.util.Binarizer
 import org.kiot.util.Binary
 import org.kiot.util.BitSet
 import org.kiot.util.IntList
-import org.kiot.util.binarizer
 import org.kiot.util.binarySize
-import org.kiot.util.intListOf
 import org.kiot.util.intListOf
 import org.kiot.util.swap
 
@@ -52,7 +50,7 @@ sealed class DFA(protected val finalFlags: BitSet) : Binarizable {
  * NFAs so we don't implement modification operations of DFA (I'm curious who would
  * build an DFA manually XD). Obtain a DFA from NFA.
  *
- * @see NFA
+ * @see StaticNFA
  * @see Automata
  *
  * @author Mivik

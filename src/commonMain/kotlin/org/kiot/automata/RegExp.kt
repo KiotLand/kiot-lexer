@@ -30,7 +30,7 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 
 	private fun eof() = index == elements.size
 	private fun initialStringIndex() = when (elements[index]) {
-		is NFABuilder -> -1
+		is NFA -> -1
 		else -> 0
 	}
 
@@ -50,14 +50,14 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 		buffer = char
 	}
 
-	private inline fun view(expBlock: (NFABuilder) -> Unit, charBlock: (Char) -> Unit) {
+	private inline fun view(expBlock: (NFA) -> Unit, charBlock: (Char) -> Unit) {
 		require(!eof()) { "Unexpected termination" }
 		buffer?.let {
 			charBlock(it)
 			return
 		}
 		when (stringIndex) {
-			-1 -> expBlock(elements[index] as NFABuilder)
+			-1 -> expBlock(elements[index] as NFA)
 			else -> charBlock((elements[index] as String)[stringIndex])
 		}
 	}
@@ -67,7 +67,7 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 		error()
 	}
 
-	private inline fun take(expBlock: (NFABuilder) -> Unit, charBlock: (Char) -> Unit) {
+	private inline fun take(expBlock: (NFA) -> Unit, charBlock: (Char) -> Unit) {
 		view({
 			moveForward()
 			expBlock(it)
@@ -185,12 +185,12 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 		return if (inverse) ret.inverse() else ret
 	}
 
-	fun readExpression(): NFABuilder {
+	fun readExpression(): NFA {
 		moveForward()
 		check()
-		val orList = mutableListOf<NFABuilder>()
-		var tmp = NFABuilder()
-		var last: NFABuilder? = null
+		val orList = mutableListOf<NFA>()
+		var tmp = NFA()
+		var last: NFA? = null
 		var lastIsChar = false
 		fun commit() {
 			last?.let { tmp.append(it) }
@@ -214,12 +214,12 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 						commit()
 						if (tmp.isNotEmpty()) orList += tmp
 						if (orList.size == 1) return orList[0]
-						return NFABuilder.branch(orList)
+						return NFA.branch(orList)
 					}
 					'[' -> {
 						unget(it)
 						commit()
-						last = NFABuilder.from(readCharClass())
+						last = NFA.from(readCharClass())
 					}
 					'+' -> last!!.oneOrMore().also { commit() }
 					'*' -> last!!.any().also { commit() }
@@ -228,7 +228,7 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 						commit()
 						if (tmp.isEmpty()) unexpected('|')
 						orList += tmp
-						tmp = NFABuilder()
+						tmp = NFA()
 					}
 					'{' -> {
 						val atLeast = readInt() ?: error("Expected integer")
@@ -248,12 +248,12 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 							if (!lastIsChar) {
 								commit()
 								lastIsChar = true
-								last = NFABuilder()
+								last = NFA()
 							}
 							last!!.append(readChar())
 						} else {
 							commit()
-							last = NFABuilder.from(charClass)
+							last = NFA.from(charClass)
 						}
 					}
 				}
@@ -262,11 +262,11 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 	}
 }
 
-fun Char.regexp(): NFABuilder = RegExpParser(listOf("($this)")).readExpression()
-fun String.regexp(): NFABuilder = RegExpParser(listOf("($this)")).readExpression()
+fun Char.regexp(): NFA = RegExpParser(listOf("($this)")).readExpression()
+fun String.regexp(): NFA = RegExpParser(listOf("($this)")).readExpression()
 
 /**
- * Allow using plus operator to concat [NFABuilder] and [String].
+ * Allow using plus operator to concat [NFA] and [String].
  *
  * As the name mentioned, it's temporary and will change after calling plus
  * operator on it. Note that the content of a [TemporaryRegExpBuilder] will be
@@ -279,7 +279,7 @@ class TemporaryRegExpBuilder {
 		list += string
 	}
 
-	operator fun plus(nfa: NFABuilder): TemporaryRegExpBuilder = apply {
+	operator fun plus(nfa: NFA): TemporaryRegExpBuilder = apply {
 		list += nfa
 	}
 
@@ -287,7 +287,7 @@ class TemporaryRegExpBuilder {
 		list.addAll(other.list)
 	}
 
-	fun build(): NFABuilder {
+	fun build(): NFA {
 		list += ")"
 		return RegExpParser(list).readExpression().also { list.clear() }
 	}

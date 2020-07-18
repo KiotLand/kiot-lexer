@@ -11,59 +11,59 @@ internal class NFATest {
 		/**
 		 * A NFA that matches decimal representations of integers that can be divided by 3.
 		 */
-		fun buildThree(): NFA {
-			val `0369` = NFABuilder.fromSorted("0369").any()
-			val `147` = NFABuilder.fromSorted("147")
-			val `258` = NFABuilder.fromSorted("258")
-			return NFABuilder()
+		fun buildThree(): StaticNFA {
+			val `0369` = NFA.fromSorted("0369").any()
+			val `147` = NFA.fromSorted("147")
+			val `258` = NFA.fromSorted("258")
+			return NFA()
 				.append(`0369`)
 				.append(
-					NFABuilder.branch(
-						NFABuilder()
+					NFA.branch(
+						NFA()
 							.appendBranch(
-								NFABuilder()
+								NFA()
 									.append(`147`)
 									.append(`0369`),
-								NFABuilder()
+								NFA()
 									.append(`258`)
 									.append(`0369`)
 									.append(`258`)
 									.append(`0369`)
 							).append(
-								NFABuilder()
+								NFA()
 									.append(`147`)
 									.append(`0369`)
 									.append(`258`)
 									.append(`0369`)
 									.any()
 							).appendBranch(
-								NFABuilder()
+								NFA()
 									.append(`258`)
 									.append(`0369`),
-								NFABuilder()
+								NFA()
 									.append(`147`)
 									.append(`0369`)
 									.append(`147`)
 									.append(`0369`)
 							),
-						NFABuilder()
+						NFA()
 							.append(`258`)
 							.append(`0369`)
 							.append(`147`)
 							.append(`0369`)
 					).any()
-				).build()
+				).static()
 		}
 	}
 
 	@Test
 	fun test() {
-		NFA.from("1234").apply {
+		StaticNFA.from("1234").apply {
 			assertTrue(match("1234"))
 			assertFalse(match("12345"))
 			assertTrue(match("12345", exact = false))
 		}
-		NFA.fromSorted("abd").apply {
+		StaticNFA.fromSorted("abd").apply {
 			assertTrue(match("a"))
 			assertTrue(match("d"))
 			assertFalse(match("c"))
@@ -72,13 +72,13 @@ internal class NFATest {
 
 	@Test
 	fun testAppend() {
-		NFABuilder.from("123")
+		NFA.from("123")
 			.append("456")
-			.append("789").build().apply {
+			.append("789").static().apply {
 				assertEquals(9, size)
 				assertTrue(match("123456789"))
 			}
-		NFABuilder.from("123").append(NFABuilder.from("456")).build().apply {
+		NFA.from("123").append(NFA.from("456")).static().apply {
 			assertEquals(6, size)
 			assertTrue(match("123456"))
 		}
@@ -86,18 +86,18 @@ internal class NFATest {
 
 	@Test
 	fun testChain() {
-		NFABuilder.chain(
-			NFABuilder.from("123"),
-			NFABuilder.from("456")
-		).build().apply {
+		NFA.chain(
+			NFA.from("123"),
+			NFA.from("456")
+		).static().apply {
 			// 1->2->3->4->5->6->(Final)
 			assertEquals(6, size)
 			assertTrue(match("123456"))
 		}
-		NFABuilder.chain(
-			NFABuilder.fromSorted("abc"),
-			NFABuilder.from("d")
-		).build().apply {
+		NFA.chain(
+			NFA.fromSorted("abc"),
+			NFA.from("d")
+		).static().apply {
 			assertEquals(2, size)
 			assertTrue(match("ad"))
 			assertTrue(match("bd"))
@@ -107,10 +107,10 @@ internal class NFATest {
 
 	@Test
 	fun testBranch() {
-		NFABuilder.branch(
-			NFABuilder.from("kotlin"),
-			NFABuilder.from("kiot")
-		).build().apply {
+		NFA.branch(
+			NFA.from("kotlin"),
+			NFA.from("kiot")
+		).static().apply {
 			// 6(kotlin)+4(kiot)+2(begin and end) = 12
 			assertEquals(12, size)
 			assertTrue(match("kotlin"))
@@ -120,35 +120,35 @@ internal class NFATest {
 
 	@Test
 	fun testRepeat() {
-		NFABuilder.from("a").oneOrMore().apply {
+		NFA.from("a").oneOrMore().apply {
 			assertEquals(0, reduce())
-		}.build().apply {
+		}.static().apply {
 			assertFalse(match(""))
 			assertTrue(match("a"))
 			assertTrue(match("aaa"))
 		}
-		NFABuilder.from("aa ").unnecessary().apply {
+		NFA.from("aa ").unnecessary().apply {
 			assertEquals(0, reduce())
-		}.build().apply {
+		}.static().apply {
 			assertTrue(match("aa "))
 			assertTrue(match(""))
 			assertFalse(match("aa aa "))
 		}
-		NFABuilder.from("a").any().apply {
+		NFA.from("a").any().apply {
 			assertEquals(0, reduce())
-		}.build().apply {
+		}.static().apply {
 			assertTrue(match("a"))
 			assertTrue(match(""))
 			assertTrue(match("aaa"))
 		}
-		NFABuilder.from("a ").repeat(1, 3).build().apply {
+		NFA.from("a ").repeat(1, 3).static().apply {
 			assertTrue(match("a "))
 			assertTrue(match("a a "))
 			assertTrue(match("a a a "))
 			assertFalse(match(""))
 			assertFalse(match("a a a a "))
 		}
-		NFABuilder.from("a ").repeatAtLeast(2).build().apply {
+		NFA.from("a ").repeatAtLeast(2).static().apply {
 			assertFalse(match("a "))
 			assertTrue(match("a a "))
 			assertTrue(match("a a a "))
@@ -169,54 +169,54 @@ internal class NFATest {
 
 	@Test
 	fun testRegExp() {
-		NFA.fromRegExp("(simple string)").apply {
+		StaticNFA.fromRegExp("(simple string)").apply {
 			assertTrue(match("simple string"))
 		}
-		NFA.fromRegExp("[0-9]").apply {
+		StaticNFA.fromRegExp("[0-9]").apply {
 			for (i in '0'..'9') assertTrue(match(i.toString()))
 			for (i in 'a'..'z') assertFalse(match(i.toString()))
 		}
-		NFA.fromRegExp("[0-9a-z]").apply {
+		StaticNFA.fromRegExp("[0-9a-z]").apply {
 			for (i in '0'..'9') assertTrue(match(i.toString()))
 			for (i in 'a'..'z') assertTrue(match(i.toString()))
 		}
-		NFA.fromRegExp("[\\w][\\W][\\d][\\s]").apply {
+		StaticNFA.fromRegExp("[\\w][\\W][\\d][\\s]").apply {
 			assertTrue(match("a_3 "))
 			assertFalse(match("ab3 "))
 		}
-		NFA.fromRegExp("[^0-9]+").apply {
+		StaticNFA.fromRegExp("[^0-9]+").apply {
 			assertTrue(match("kiot and kotlin"))
 			assertFalse(match("number 0"))
 		}
-		NFA.fromRegExp("(cat|dog)").apply {
+		StaticNFA.fromRegExp("(cat|dog)").apply {
 			assertTrue(match("cat"))
 			assertTrue(match("dog"))
 			assertFalse(match("cog")) // wtf?
 		}
-		NFA.fromRegExp("((cat|dog|frog) )*").apply {
+		StaticNFA.fromRegExp("((cat|dog|frog) )*").apply {
 			assertTrue(match(""))
 			assertTrue(match("dog cat "))
 			assertTrue(match("cat cat dog "))
 			assertTrue(match("cat cat dog frog "))
 			assertFalse(match("cat")) // no tailing space
 		}
-		NFA.fromRegExp("\\d+").apply {
+		StaticNFA.fromRegExp("\\d+").apply {
 			assertTrue(match("123"))
 			assertFalse(match(""))
 		}
-		NFA.fromRegExp("\\d{1,4}").apply {
+		StaticNFA.fromRegExp("\\d{1,4}").apply {
 			assertTrue(match("1234"))
 			assertTrue(match("1926"))
 			assertFalse(match(""))
 			assertFalse(match("12345"))
 		}
-		NFA.fromRegExp("\\w{3,}").apply {
+		StaticNFA.fromRegExp("\\w{3,}").apply {
 			assertTrue(match("cat"))
 			assertTrue(match("kotlin"))
 			assertFalse(match("do"))
 			assertFalse(match("a"))
 		}
-		NFA.fromRegExp("[0369]*(([147][0369]*|[258][0369]*[258][0369]*)([147][0369]*[258][0369]*)*([258][0369]*|[147][0369]*[147][0369]*)|[258][0369]*[147][0369]*)*")
+		StaticNFA.fromRegExp("[0369]*(([147][0369]*|[258][0369]*[258][0369]*)([147][0369]*[258][0369]*)*([258][0369]*|[147][0369]*[147][0369]*)|[258][0369]*[147][0369]*)*")
 			.apply {
 				repeat(200) {
 					val number = Random.nextInt(0, 2000) * 3
@@ -226,7 +226,7 @@ internal class NFATest {
 				}
 			}
 		// Matches negative floating-point number
-		NFA.fromRegExp("-(([0-9]+\\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\\.[0-9]+)|([0-9]*[1-9][0-9]*))").apply {
+		StaticNFA.fromRegExp("-(([0-9]+\\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\\.[0-9]+)|([0-9]*[1-9][0-9]*))").apply {
 			repeat(200) {
 				val number = Random.nextDouble(0.1, 1.0)
 				assertFalse(match(number.toString()))
@@ -234,7 +234,7 @@ internal class NFATest {
 			}
 		}
 		// Matches email address
-		NFA.fromRegExp("\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*").apply {
+		StaticNFA.fromRegExp("\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*").apply {
 			assertTrue(match("mivik@qq.com"))
 			assertTrue(match("anonymous@safemail.com"))
 		}
@@ -249,6 +249,14 @@ internal class NFATest {
 				assertTrue(match("i have a dream "))
 				assertTrue(match("42 is a mysterious number "))
 			}
+		}
+		run {
+			val capitalizedWord = "[A-Z]\\w+".regexp()
+			val word = "\\w+".regexp()
+			val number = "\\d+".regexp()
+			val sentence = (RegExp + capitalizedWord + "( (" + word + "|" + number + "))+").build()
+			assertTrue(sentence.match("We can deal with numbers like 1926"))
+			assertFalse(sentence.match("not capitalized"))
 		}
 	}
 }

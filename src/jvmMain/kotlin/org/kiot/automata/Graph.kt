@@ -2,7 +2,7 @@ package org.kiot.automata
 
 import com.mivik.kot.kot
 
-fun NFA.buildGraph() = kot {
+fun StaticNFA.buildGraph() = kot {
 	digraph {
 		node("-1").let {
 			it.label = "Final"

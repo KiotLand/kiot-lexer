@@ -1,365 +1,287 @@
 package org.kiot.automata
 
-import org.kiot.util.Binarizable
-import org.kiot.util.Binarizer
-import org.kiot.util.Binary
 import org.kiot.util.BitSet
-import org.kiot.util.CircularIntQueue
-import org.kiot.util.IntList
-import org.kiot.util.MutablePair
-import org.kiot.util.binarySize
-import org.kiot.util.booleanListOf
 import org.kiot.util.intListOf
-import kotlin.native.concurrent.ThreadLocal
 
 /**
- * NFA stands for "Nondeterministic finite automata".
+ * With an additional property: [endCell], we can now build a
+ * NFA in a sequential way!
  *
- * In kiot-lexer, it's implemented through representing states as integers
- * and store their data in several arrays. The index of begin cell is stored
- * in NFA.
+ * End cell should have only one out to the final cell (-1),
+ * for example:
  *
- * @see DFA
- * @see Automata
+ * A -> A -> B -> (Final)
+ *
+ * In the NFA above, cell "B" is the end cell.
  *
  * @author Mivik
  */
-class NFA(
-	/**
-	 * In kiot-lexer, transitions are stored in cells themselves. Each
-	 * cell has a [CharClass]. Let A be a cell, and its [CharClass]
-	 * be C. If we are now at cell A, and we received a new char
-	 * that is contained in C, so we'll extend the [CellList] with
-	 * A's [outs], otherwise we'll do nothing.
-	 *
-	 * Specially, if a cell's [CharClass] is empty, we'll treat it as
-	 * a dummy cell which does not accept any char and only transits
-	 * to all its outs when being stepped in.
-	 */
-	private val charClasses: MutableList<CharClass> = mutableListOf(),
-	private val outs: MutableList<IntList> = mutableListOf() // Mentioned above
-) : Automata(), Binarizable {
+class NFA(val nfa: StaticNFA = StaticNFA(), var endCell: Int = 0) {
 	companion object {
-		fun from(vararg chars: Char) = NFABuilder.from(*chars).build()
-		fun fromSorted(vararg chars: Char) = NFABuilder.fromSorted(*chars).build()
-		fun fromSorted(chars: String) = NFABuilder.fromSorted(chars).build()
-		fun from(charClass: CharClass) = NFABuilder.from(charClass).build()
+		fun chain(vararg elements: NFA) =
+			NFA().apply { for (element in elements) append(element) }
 
-		fun from(chars: CharSequence) = NFABuilder.from(chars).build()
-		fun from(chars: Iterator<Char>) = NFABuilder.from(chars).build()
+		fun branch(vararg branches: NFA) = NFA().appendBranch(branches.asList())
+		fun branch(branches: List<NFA>) = NFA().appendBranch(branches)
 
-		fun fromRegExp(regexp: String) = NFABuilder.fromRegExp(regexp).build()
+		fun from(vararg chars: Char) = from(CharClass.from(*chars))
+		fun fromSorted(vararg chars: Char) = from(CharClass.fromSorted(*chars))
+		fun fromSorted(chars: String) = from(CharClass.fromSorted(chars))
+		fun from(charClass: CharClass) = NFA().append(charClass)
 
-		val binarizer = object : Binarizer<NFA> {
-			override fun binarize(bin: Binary, value: NFA) = value.run {
-				bin.put(size)
-				for (charClass in charClasses) bin.put(charClass, CharClass.binarizer)
-				for (out in outs) bin.put(out, IntList.binarizer)
-				bin.put(beginCell)
-			}
-
-			override fun debinarize(bin: Binary): NFA {
-				val size = bin.int()
-				return NFA(
-					MutableList(size) { bin.read(CharClass.binarizer) },
-					MutableList(size) { bin.read(IntList.binarizer) }
-				).also { it.beginCell = bin.int() }
-			}
-
-			override fun measure(value: NFA): Int =
-				Binary.measureList(value.charClasses) + Binary.measureList(value.outs) + Int.binarySize
-		}.also { Binary.register(it) }
-	}
-
-	fun link(from: Int, to: Int) {
-		outs[from].clear()
-		outs[from].add(to)
-	}
-
-	override val size: Int
-		get() = charClasses.size
-	override var beginCell = finalCell
-	val finalCell: Int
-		inline get() = -1
-
-	val indices: IntRange
-		inline get() = 0 until size
-
-	override fun copy(): NFA =
-		NFA(
-			charClasses.toMutableList(),
-			outs.mapTo(mutableListOf()) { it.copy() }
-		).also { it.beginCell = beginCell }
-
-	private fun <T : Mark> markedPutInto(cellIndex: Int, list: CellList, marks: List<T?>): T? {
-		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
-			list.add(cellIndex)
-			return null
+		fun from(chars: CharSequence) = from(chars.iterator())
+		fun from(chars: Iterator<Char>): NFA {
+			require(chars.hasNext()) { "Chars can not be empty" }
+			return NFA().append(chars)
 		}
-		var mark = marks[cellIndex]
-		for (i in outs[cellIndex]) mark = mergeMark(mark, markedPutInto(i, list, marks))
-		return mark
+
+		fun fromRegExp(regexp: String) = NFA().appendRegExp(regexp)
 	}
 
-	private fun putInto(cellIndex: Int, list: CellList) {
-		if (isFinal(cellIndex) || !isDummy(cellIndex)) {
-			list.add(cellIndex)
-			return
+	var beginCell: Int
+		inline get() = nfa.beginCell
+		inline set(value) {
+			nfa.beginCell = value
 		}
-		for (i in outs[cellIndex]) putInto(i, list)
+	val size: Int
+		inline get() = nfa.size
+
+	fun extend(cellIndex: Int) {
+		if (nfa.isFinal(beginCell)) nfa.beginCell = cellIndex
+		else nfa.link(endCell, cellIndex)
 	}
 
-	private fun transit(cellIndex: Int, char: Char, list: CellList) {
-		if (isFinal(cellIndex)) return
-		// When the cell is dummy, its CharClass should be empty and this following check will be satisfied.
-		if (char !in charClasses[cellIndex]) return
-		for (i in outs[cellIndex]) putInto(i, list)
+	fun makeEnd(cellIndex: Int) {
+		nfa.link(cellIndex, nfa.finalCell)
+		endCell = cellIndex
+	}
+
+	fun extendEnd(cellIndex: Int) {
+		extend(cellIndex)
+		makeEnd(cellIndex)
+	}
+
+	fun copy(): NFA = NFA(nfa.copy(), endCell)
+
+	fun clear() {
+		nfa.clear()
+		endCell = 0
+	}
+
+	fun isEmpty() = endCell == -1
+	fun isNotEmpty() = endCell != -1
+
+	fun append(other: NFA): NFA {
+		if (other.isEmpty()) return this
+		extend(other.beginCell + size)
+		include(other)
+		return this
+	}
+
+	fun appendBranch(vararg branches: NFA) = appendBranch(branches.asList())
+	fun appendBranch(branches: List<NFA>): NFA {
+		if (branches.isEmpty()) return this
+		if (branches.size == 1) return append(branches[0])
+		/*
+		            /--> (NFA1) --\
+		(Begin) --<      ......     >--> (End) --> (Final)
+		            \--> (NFAn) --/
+		 */
+		val newBegin = nfa.appendDummyCell()
+		extend(newBegin)
+		val beginOuts = nfa.outsOf(newBegin)
+		val newEnd = nfa.appendDummyCell()
+		for (branch in branches) {
+			beginOuts += branch.beginCell + size
+			include(branch)
+			nfa.link(endCell, newEnd)
+		}
+		makeEnd(newEnd)
+		return this
+	}
+
+	fun append(chars: CharSequence) = append(chars.iterator())
+	fun append(chars: Iterator<Char>): NFA {
+		if (!chars.hasNext()) return this
+		var cur = nfa.appendCell(CharClass.from(chars.next()))
+		extend(cur)
+		while (chars.hasNext()) {
+			nfa.appendCell(CharClass.from(chars.next()))
+			nfa.outsOf(cur).add(++cur)
+		}
+		makeEnd(cur)
+		return this
+	}
+
+	/**
+	 * Four functions below add one simple cell to NFA that
+	 * accepts single char.
+	 */
+	fun append(vararg chars: Char) = append(CharClass.from(*chars))
+	fun appendSorted(vararg chars: Char) = append(CharClass.fromSorted(*chars))
+	fun appendSorted(chars: String) = append(CharClass.fromSorted(chars))
+	fun append(charClass: CharClass): NFA {
+		extendEnd(nfa.appendCell(charClass))
+		return this
+	}
+
+	fun appendRegExp(regexp: String) = append(regexp.regexp())
+
+	/**
+	 * Remove unused cells (cells that cannot be reached from the begin cell) and
+	 * return the amount of them.
+	 */
+	fun reduce(): Int = with(nfa) {
+		val visited = BitSet(size)
+		val stack = intListOf(beginCell)
+		visited.set(beginCell)
+		while (stack.isNotEmpty()) {
+			val x = stack.removeAt(stack.lastIndex)
+			for (y in outsOf(x)) {
+				if (isFinal(y) || visited[y]) continue
+				visited.set(y)
+				stack += y
+			}
+		}
+		val map = IntArray(size)
+		var pre = 0
+		fun removeRange(fromIndex: Int, toIndex: Int) {
+			val from = fromIndex - pre
+			val to = toIndex - pre
+			clearRange(from, to)
+			map[fromIndex] -= toIndex - fromIndex
+			pre += toIndex - fromIndex
+		}
+
+		var lst = -1
+		var ret = 0
+		val originalSize = size
+		for (i in 0 until size) {
+			if (!visited[i]) {
+				if (lst == -1) lst = i
+			} else if (lst != -1) {
+				ret += i - lst
+				removeRange(lst, i)
+				lst = -1
+			}
+		}
+		if (lst != -1) {
+			ret += originalSize - lst
+			removeRange(lst, originalSize)
+		}
+		for (j in 1 until map.size) map[j] += map[j - 1]
+		for (j in map.indices) map[j] += j
+		for (j in indices) {
+			val outs = outsOf(j)
+			for (k in outs.indices)
+				if (!isFinal(outs[k])) outs[k] = map[outs[k]]
+		}
+		// Important!
+		nfa.beginCell = map[nfa.beginCell]
+		endCell = map[endCell]
+		return ret
 	}
 
 	fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
-	fun match(chars: Iterator<Char>, exact: Boolean = true) =
-		CellList(this).apply { putInto(beginCell, this) }.match(chars, exact)
+	fun match(chars: Iterator<Char>, exact: Boolean = true) = nfa.match(chars, exact)
 
-	operator fun plusAssign(other: NFA) {
-		val offset = size
-		charClasses += other.charClasses
-		for (i in 0 until other.size)
-			outs += other.outs[i].mapTo(intListOf()) { if (isFinal(it)) it else (it + offset) }
-	}
+	fun static() = nfa
 
-	fun isDummy(cellIndex: Int) = charClasses[cellIndex].isEmpty()
-	fun charClassOf(cellIndex: Int) = charClasses[cellIndex]
-	fun outsOf(cellIndex: Int) = outs[cellIndex]
-	override fun isFinal(cellIndex: Int) = cellIndex == -1
-
-	fun setCharClass(cellIndex: Int, charClass: CharClass) {
-		this.charClasses[cellIndex] = charClass
-	}
-
-	fun setOuts(cellIndex: Int, outs: IntList) {
-		this.outs[cellIndex] = outs
-	}
-
-	fun appendCell(charClass: CharClass, outs: IntList = intListOf()): Int {
-		this.charClasses += charClass
-		this.outs += outs
-		return size - 1
-	}
-
-	fun appendDummyCell(outs: IntList = intListOf()): Int = appendCell(CharClass.empty, outs)
-
-	fun clear() {
-		charClasses.clear()
-		outs.clear()
-		beginCell = finalCell
-	}
-
-	internal fun clearRange(from: Int, to: Int) {
-		charClasses.subList(from, to).clear()
-		outs.subList(from, to).clear()
+	fun include(other: NFA) {
+		val offset = nfa.size
+		nfa += other.nfa
+		endCell = offset + other.endCell
 	}
 
 	/**
-	 * A list of NFA cells.
+	 * Make this NFA a new NFA that accepts (this)+ .
 	 */
-	class CellList(
-		private val nfa: NFA,
-		private val bitset: BitSet = BitSet(nfa.size),
-		private val list: IntList = intListOf(),
-		private var finalCount: Int = 0
-	) {
-		companion object {
-			// I know it's pretty dirty.. It's to avoid using try-catch!
-			@ThreadLocal
-			internal var lastRange: PlainCharRange = PlainCharRange.empty
+	fun oneOrMore(): NFA {
+		/*
+		   |---------------------|
+		   √                     |
+		(Begin) --> (End) --> (Dummy1) --> (Dummy2) --> (Final)
+		 */
+		with(nfa) {
+			val dummy2 = appendDummyCell()
+			extend(appendDummyCell(intListOf(beginCell, dummy2))) // dummy1
+			makeEnd(dummy2)
 		}
-
-		val size: Int
-			get() = list.size
-
-		val hasFinal: Boolean
-			get() = finalCount != 0
-
-		fun add(element: Int) {
-			if (nfa.isFinal(element)) {
-				++finalCount
-				return
-			}
-			if (bitset[element]) return
-			bitset.set(element)
-			list.add(element)
-		}
-
-		fun addAll(elements: IntList) {
-			for (element in elements) add(element)
-		}
-
-		fun remove(element: Int) {
-			if (nfa.isFinal(element)) {
-				--finalCount
-				return
-			}
-			if (!bitset[element]) return
-			bitset.clear(element)
-			list.remove(element)
-		}
-
-		fun contains(element: Int): Boolean = bitset[element]
-
-		fun isEmpty(): Boolean = size == 0
-		fun isNotEmpty(): Boolean = size != 0
-
-		operator fun iterator() = Iterator()
-
-		fun clear() {
-			bitset.clear()
-			list.clear()
-			finalCount = 0
-		}
-
-		fun copy(): CellList = CellList(nfa, bitset.copy(), list.copy(), finalCount)
-
-		fun match(chars: CharSequence, exact: Boolean = true) = match(chars.iterator(), exact)
-		fun match(chars: kotlin.collections.Iterator<Char>, exact: Boolean = true): Boolean {
-			if (!chars.hasNext()) return hasFinal
-			if ((!exact) && hasFinal) return true
-			var listA = copy()
-			var listB = CellList(nfa)
-			do {
-				val char = chars.next()
-				for (cell in listA) {
-					nfa.transit(cell, char, listB)
-					if (listB.hasFinal && !exact) return true
-				}
-				val tmp = listA
-				listA = listB
-				listB = tmp
-				listB.clear()
-			} while (chars.hasNext())
-			return listA.hasFinal
-		}
-
-		override fun hashCode(): Int = bitset.hashCode() * 31 + (if (finalCount == 0) 0 else 1)
-		override fun equals(other: Any?): Boolean =
-			if (other is CellList) hasFinal == other.hasFinal && bitset == other.bitset
-			else false
-
-		inner class Iterator : kotlin.collections.Iterator<Int> {
-			private var index = 0
-
-			override fun hasNext(): Boolean = index != list.size
-
-			override fun next(): Int = list[index++]
-		}
-
-		internal fun <T : Mark> transitionSet(): TransitionSet<T> {
-			val set = TransitionSet<T>()
-			for (cell in this) {
-				val ranges = nfa.charClasses[cell].ranges
-				val list = CellList(nfa)
-				for (out in nfa.outs[cell]) nfa.putInto(out, list)
-				for (range in ranges)
-					set.add(range, MutablePair(list, null))
-			}
-			set.optimize()
-			return set
-		}
-
-		internal fun <T : Mark> transitionSet(marks: List<T?>): TransitionSet<T> {
-			val set = TransitionSet<T>()
-			for (cell in this) {
-				val ranges = nfa.charClasses[cell].ranges
-				val list = CellList(nfa)
-				var mark = marks[cell]
-				val outs = nfa.outs[cell]
-				for (index in outs.indices) {
-					lastRange = ranges[index]
-					mark = mergeMark(mark, nfa.markedPutInto(outs[index], list, marks))
-				}
-				for (range in ranges) set.add(range, MutablePair(list, mark))
-			}
-			set.optimize()
-			return set
-		}
-
-		internal class TransitionSet<T : Mark> :
-			org.kiot.automata.TransitionSet<MutablePair<CellList, T?>>() {
-			override fun copy(element: MutablePair<CellList, T?>) =
-				MutablePair(element.first.copy(), element.second)
-
-			override fun MutablePair<CellList, T?>.merge(other: MutablePair<CellList, T?>) {
-				second = mergeMark(second, other.second)
-				first.addAll(other.first.list)
-			}
-		}
-
-		override fun toString(): String = "[${list.joinToString(", ")}]"
+		return this
 	}
 
-	fun toDFA(): GeneralDFA = toDFA<Nothing>(null).first
+	/**
+	 * Make this NFA a new NFA that accepts (this)? .
+	 */
+	fun unnecessary(): NFA {
+		/*
+		   |-----------------------------------|
+		   |                                   √
+		(Dummy1) --> (Begin) --> (End) --> (Dummy2) --> (Final)
+		 */
+		with(nfa) {
+			val dummy2 = appendDummyCell()
+			extend(dummy2)
+			makeEnd(dummy2)
+			beginCell = appendDummyCell(intListOf(beginCell, dummy2)) // dummy1
+		}
+		return this
+	}
 
 	/**
-	 * Convert a NFA into DFA using Subset Construction.
+	 * Make this NFA a new NFA that accepts (this)* .
 	 */
-	fun <T : Mark> toDFA(marks: List<T?>?): Pair<GeneralDFA, List<List<T?>>?> {
-		require(marks == null || marks.size == size)
-
-		val charRanges = mutableListOf<MutableList<PlainCharRange>>()
-		val outs = mutableListOf<MutableList<Int>>()
-		val finalFlags = booleanListOf()
-		val queue = CircularIntQueue(size)
-
-		// TODO maybe use mutableMapOf(LinkedHashMap) here?
-		val cellMap = hashMapOf<CellList, Int>()
-		val sets = mutableListOf<CellList.TransitionSet<T>>()
-		val transitionMarks = if (marks == null) null else mutableListOf<MutableList<T?>>()
-		val transitionPath = if (marks == null) null else mutableListOf<Pair<PlainCharRange, Int>?>()
-		fun indexOf(list: CellList, data: Pair<PlainCharRange, Int>?): Int =
-			cellMap[list] ?: run {
-				val index = charRanges.size
-				cellMap[list] = index
-				queue.push(index)
-				transitionMarks?.add(mutableListOf())
-				transitionPath?.add(data)
-				sets.add(if (marks == null) list.transitionSet() else list.transitionSet(marks))
-				charRanges.add(mutableListOf())
-				outs.add(mutableListOf())
-				finalFlags += list.hasFinal
-				index
-			}
-
-		try {
-			CellList(this).apply {
-				putInto(beginCell, this)
-				indexOf(this, null)
-			}
-			while (queue.isNotEmpty()) {
-				val x = queue.pop()
-				val set = sets[x]
-				val myCharRanges = charRanges[x]
-				val myOuts = outs[x]
-				val newMarks = transitionMarks?.get(x)
-				for (pair in set) {
-					myCharRanges.add(pair.first)
-					myOuts.add(indexOf(pair.second.first, Pair(pair.first, x)))
-					newMarks?.add(pair.second.second)
-				}
-			}
-		} catch (e: MarksConflictException) {
-			val list = mutableListOf<PlainCharRange>()
-			list.add(CellList.lastRange)
-			transitionPath!!
-			var x = transitionPath.lastIndex
-			while (x != 0) {
-				val pair = transitionPath[x] ?: break
-				list.add(pair.first)
-				x = pair.second
-			}
-			throw MarksConflictException(e.firstMark, e.secondMark, list.asReversed())
+	fun any(): NFA {
+		/*
+		   |-----------------------------------|
+		   |                                   √
+		(Dummy1) --> (Begin) --> (End)      (Dummy2) --> (Final)
+		   ^                       |
+		   |-----------------------|
+		 */
+		with(nfa) {
+			val dummy2 = appendDummyCell()
+			val dummy1 = appendDummyCell(intListOf(beginCell, dummy2))
+			extend(dummy1)
+			beginCell = dummy1
+			makeEnd(dummy2)
 		}
-		return Pair(
-			GeneralDFA(charRanges, outs, finalFlags.toBitSet()),
-			transitionMarks
-		)
+		return this
+	}
+
+	fun repeat(start: Int, endInclusive: Int): NFA {
+		require(start in 0..endInclusive) { "Illegal repeating range" }
+		if (start == 0 && endInclusive == 1) return unnecessary()
+		/*
+		                                  |-------------------------------------------------------|
+		                                  |                                                       √
+		((Begin) --> (End))*start --> ((Dummy) --> (Begin) --> (End))*(endInclusive-start) --> (Final)
+		 */
+		val backup = copy()
+		clear()
+		repeat(start) {
+			append(backup)
+		}
+		backup.beginCell = backup.nfa.appendDummyCell(intListOf(backup.beginCell, backup.nfa.finalCell))
+		repeat(endInclusive - start) {
+			append(backup)
+		}
+		return this
+	}
+
+	fun repeatAtLeast(time: Int): NFA {
+		require(time >= 0) { "Illegal repeating range" }
+		if (time == 0) return any()
+		if (time == 1) return oneOrMore()
+		/*
+		((Begin) --> (End))*time --> ((Any))
+		 */
+		val backup = copy()
+		clear()
+		repeat(time) {
+			append(backup)
+		}
+		append(backup.any())
+		return this
 	}
 }

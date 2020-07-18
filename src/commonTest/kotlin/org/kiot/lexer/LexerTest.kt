@@ -2,7 +2,7 @@ package org.kiot.lexer
 
 import org.kiot.automata.CharClass
 import org.kiot.automata.MarksConflictException
-import org.kiot.automata.NFABuilder
+import org.kiot.automata.NFA
 import org.kiot.util.intListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -13,9 +13,9 @@ class LexerTest {
 	fun test() {
 		val list = intListOf()
 		Lexer.simple {
-			NFABuilder.from(CharClass.letter) then { list.add(1) }
-			NFABuilder.from(CharClass.digit) then { list.add(2) }
-			NFABuilder.from(' ') then { list.add(3) }
+			NFA.from(CharClass.letter) then { list.add(1) }
+			NFA.from(CharClass.digit) then { list.add(2) }
+			NFA.from(' ') then { list.add(3) }
 		}.lex(" a1ba")
 		assertEquals(
 			intListOf(3, 1, 2, 1, 1),
@@ -27,9 +27,9 @@ class LexerTest {
 	fun test2() {
 		val list = intListOf()
 		val lexer = Lexer.simple {
-			NFABuilder.from(' ') then { list.add(1) }
-			NFABuilder.from(CharClass.digit).oneOrMore() then { list.add(2) }
-			NFABuilder.from(CharClass.letter).oneOrMore() then { list.add(3) }
+			NFA.from(' ') then { list.add(1) }
+			NFA.from(CharClass.digit).oneOrMore() then { list.add(2) }
+			NFA.from(CharClass.letter).oneOrMore() then { list.add(3) }
 		}
 		run {
 			list.clear()
@@ -62,8 +62,8 @@ class LexerTest {
 	fun testString() {
 		val list = mutableListOf<String>()
 		val lexer = Lexer.simple {
-			NFABuilder.from(' ') then null
-			NFABuilder.from(CharClass.letter).oneOrMore() then { list.add(string()) }
+			NFA.from(' ') then null
+			NFA.from(CharClass.letter).oneOrMore() then { list.add(string()) }
 		}
 		lexer.lex("one two three")
 		assertEquals(
@@ -76,14 +76,14 @@ class LexerTest {
 	fun testConflict() {
 		assertFailsWith<MarksConflictException> {
 			Lexer.simple {
-				NFABuilder.from(CharClass.digit) then {}
-				NFABuilder.from(CharClass.any) then {}
+				NFA.from(CharClass.digit) then {}
+				NFA.from(CharClass.any) then {}
 			}
 		}
 		assertFailsWith<MarksConflictException> {
 			Lexer.simple {
-				NFABuilder.from("hello") then {}
-				NFABuilder.from(CharClass.letter).oneOrMore() then {}
+				NFA.from("hello") then {}
+				NFA.from(CharClass.letter).oneOrMore() then {}
 			}
 		}
 	}
@@ -93,8 +93,8 @@ class LexerTest {
 		var type: Int
 		Lexer.simple {
 			options.strict = false
-			NFABuilder.from(CharClass.digit) then { type = 1 }
-			NFABuilder.from(CharClass.any) then { type = 2 }
+			NFA.from(CharClass.digit) then { type = 1 }
+			NFA.from(CharClass.any) then { type = 2 }
 		}.apply {
 			type = 0
 			lex("1")
@@ -113,11 +113,11 @@ class LexerTest {
 		val lexer = Lexer.buildWithData({ Word("", "") }) {
 			options.minimize = true
 			state(default) {
-				NFABuilder.from(": ") then { switchState(1) }
-				NFABuilder.from(CharClass.letter).oneOrMore() then { data.name = string() }
+				NFA.from(": ") then { switchState(1) }
+				NFA.from(CharClass.letter).oneOrMore() then { data.name = string() }
 			}
 			state(1) {
-				NFABuilder.from(CharClass.any).oneOrMore() then { data.definition = string() }
+				NFA.from(CharClass.any).oneOrMore() then { data.definition = string() }
 			}
 		}
 		assertEquals(

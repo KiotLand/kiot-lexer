@@ -4,7 +4,7 @@ import org.kiot.automata.GeneralDFA
 import org.kiot.automata.Mark
 import org.kiot.automata.MarkedDFA
 import org.kiot.automata.MarkedGeneralDFA
-import org.kiot.automata.NFABuilder
+import org.kiot.automata.NFA
 
 interface LexerState {
 	val ordinal: Int
@@ -48,31 +48,31 @@ class MarkedDFABuilder<T>(val options: LexerOptions = LexerOptions()) {
 		override fun toString(): String = "PriorityMark($priority, $mark)"
 	}
 
-	private val pairs = mutableListOf<Pair<NFABuilder, NamedFunctionMark<T>?>>()
+	private val pairs = mutableListOf<Pair<NFA, NamedFunctionMark<T>?>>()
 
 	inline val ignore: (Lexer.Session<T>.() -> Unit)?
 		get() = null
 
-	infix fun NFABuilder.then(listener: Lexer.Session<T>.() -> Unit) {
+	infix fun NFA.then(listener: Lexer.Session<T>.() -> Unit) {
 		pairs.add(Pair(this, NamedFunctionMark(listener)))
 	}
 
-	infix fun NFABuilder.then(mark: NamedFunctionMark<T>?) {
+	infix fun NFA.then(mark: NamedFunctionMark<T>?) {
 		pairs.add(Pair(this, mark))
 	}
 
 	// RegExp
 	infix fun String.then(listener: Lexer.Session<T>.() -> Unit): NamedFunctionMark<T> =
-		NamedFunctionMark(listener).also { pairs.add(Pair(NFABuilder.fromRegExp(this), it)) }
+		NamedFunctionMark(listener).also { pairs.add(Pair(NFA.fromRegExp(this), it)) }
 
 	infix fun String.then(mark: NamedFunctionMark<T>?) {
-		pairs.add(Pair(NFABuilder.fromRegExp(this), mark))
+		pairs.add(Pair(NFA.fromRegExp(this), mark))
 	}
 
 	@Suppress("UNCHECKED_CAST")
 	fun build(): MarkedDFA<GeneralDFA, T> {
 		require(pairs.isNotEmpty()) { "DFA used for lexer can not be empty" }
-		val builder = NFABuilder()
+		val builder = NFA()
 		val nfa = builder.nfa
 		val newBegin = nfa.appendDummyCell()
 		builder.extend(newBegin)
@@ -89,7 +89,7 @@ class MarkedDFABuilder<T>(val options: LexerOptions = LexerOptions()) {
 				if (strict) pair.second else pair.second?.let { PriorityMark(index, it) }
 		}
 		builder.makeEnd(newEnd)
-		var (dfa, newMarks) = builder.build().toDFA(marks.asList())
+		var (dfa, newMarks) = builder.static().toDFA(marks.asList())
 		if (options.minimize) {
 			val pair = dfa.minimize(newMarks)
 			dfa = pair.first

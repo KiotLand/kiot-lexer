@@ -3,7 +3,7 @@ package org.kiot.util
 import org.kiot.automata.CharClass
 import org.kiot.automata.CompressedDFA
 import org.kiot.automata.GeneralDFA
-import org.kiot.automata.NFA
+import org.kiot.automata.StaticNFA
 import org.kiot.automata.NFATest
 import kotlin.random.Random
 import kotlin.test.Test
@@ -40,7 +40,7 @@ internal class BinaryTest {
 			}
 		}
 		run {
-			val nfa = NFATest.buildThree().binarize().debinarize<NFA>()
+			val nfa = NFATest.buildThree().binarize().debinarize<StaticNFA>()
 			(Random.nextInt(0, 2000) * 3).let {
 				assertTrue(nfa.match(it.toString()))
 				assertFalse(nfa.match((it + 1).toString()))

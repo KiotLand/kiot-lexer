@@ -1,7 +1,7 @@
 <h1 align="center">kiot-lexer</h1>
 <h4 align="center">A state-based grateful lexer written in Kotlin. </h4>
 <p>
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.5.5-blue.svg?cacheSeconds=2592000" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.5.6-blue.svg?cacheSeconds=2592000" />
   <a href="./LICENSE.md" target="_blank">
     <img alt="License: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-yellow.svg" />
   </a>
@@ -34,7 +34,7 @@ allprojects {
 }
 
 dependencies {
-	implementation 'com.github.KiotLand.kiot-lexer:kiot-lexer:1.0.5.5'
+	implementation 'com.github.KiotLand.kiot-lexer:kiot-lexer:1.0.5.6'
 	// kiot-lexer-js and kiot-lexer-jvm are also alternatives.
 }
 ```
@@ -161,6 +161,25 @@ lexer.lex("1")
 lexer.lex("d")
 // output: a char
 ```
+
+#### Example 5. RegExp reusing
+
+Sometimes we need to reuse some frequently used RegExp, not only to reduce the complexity of the code, but also to speed up the program. We can do that this way in kiot-lexer:
+
+```kotlin
+
+import org.kiot.automata.RegExp
+
+val capitalizedWord = "[A-Z]\\w+".regexp()
+val word = "\\w+".regexp()
+val number = "\\d+".regexp()
+val sentence = (RegExp + capitalizedWord + "( (" + word + "|" + number + "))+").build()
+
+sentence.match("We can deal with numbers like 1926") // true
+sentence.match("not capitalized") // false
+```
+
+Note that we use `RegExp` to mark the begin of a regexp sequence, then we call `build` on this sequence to get its parsing result. In the example above, `capitalizedWord`, `word` and `number` are NFAs instead of strings, so the process of repeatedly parsing some regexp is reduced.
 
 ## Notice
 
