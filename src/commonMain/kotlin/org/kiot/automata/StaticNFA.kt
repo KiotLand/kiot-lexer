@@ -48,7 +48,7 @@ class StaticNFA(
 		fun from(chars: CharSequence) = NFA.from(chars).static()
 		fun from(chars: Iterator<Char>) = NFA.from(chars).static()
 
-		fun fromRegExp(regexp: String) = NFA.fromRegExp(regexp).static()
+		fun fromRegExp(regexp: String) = regexp.regexp().static()
 
 		val binarizer = object : Binarizer<StaticNFA> {
 			override fun binarize(bin: Binary, value: StaticNFA) = value.run {

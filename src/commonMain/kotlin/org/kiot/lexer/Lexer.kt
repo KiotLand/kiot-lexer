@@ -50,7 +50,7 @@ class MarkedDFABuilder<T>(val options: LexerOptions = LexerOptions()) {
 
 	private val pairs = mutableListOf<Pair<NFA, NamedFunctionMark<T>?>>()
 
-	inline val ignore: (Lexer.Session<T>.() -> Unit)?
+	inline val ignore: NamedFunctionMark<T>?
 		get() = null
 
 	infix fun NFA.then(listener: Lexer.Session<T>.() -> Unit) {
@@ -63,10 +63,10 @@ class MarkedDFABuilder<T>(val options: LexerOptions = LexerOptions()) {
 
 	// RegExp
 	infix fun String.then(listener: Lexer.Session<T>.() -> Unit): NamedFunctionMark<T> =
-		NamedFunctionMark(listener).also { pairs.add(Pair(NFA.fromRegExp(this), it)) }
+		NamedFunctionMark(listener).also { pairs.add(Pair(NFA.fromRegExp(this), it)) }.also { it withName this }
 
 	infix fun String.then(mark: NamedFunctionMark<T>?) {
-		pairs.add(Pair(NFA.fromRegExp(this), mark))
+		pairs.add(Pair(NFA.fromRegExp(this), mark?.also { it withName this }))
 	}
 
 	@Suppress("UNCHECKED_CAST")
@@ -155,9 +155,10 @@ class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) 
 	class Session<T>(private val lexer: Lexer<T>, private val chars: CharSequence, val data: T) {
 		private var lastMatch = 0
 		private var currentDFA = lexer.dfaList[0]!!
-		private var i = 0
+		var index = 0
+			private set
 
-		fun string() = chars.substring(lastMatch, i)
+		fun string() = chars.substring(lastMatch, index)
 
 		fun switchState(state: LexerState) = switchState(state.ordinal + 1)
 		fun switchState(stateIndex: Int) {
@@ -168,34 +169,34 @@ class Lexer<T>(val dfaList: List<MarkedDFA<*, T>?>, val dataGenerator: () -> T) 
 		}
 
 		fun lex() {
-			if (i == chars.length) return
+			if (index == chars.length) return
 			var dfa = currentDFA.dfa
 			var x = dfa.beginCell
 			var lastIndex = -1
 			var lastNode = 0
 			// note that all the marks lies in final cells, since we only marked end cells in NFAs.
-			while (i <= chars.length) {
-				var index = if (i == chars.length) -1 else dfa.transitionIndex(x, chars[i])
+			while (index <= chars.length) {
+				var index = if (index == chars.length) -1 else dfa.transitionIndex(x, chars[index])
 				if (index == -1) {
-					if (lastIndex == -1) throw LexerMismatchException(lastMatch, i)
-					i = lastIndex
+					if (lastIndex == -1) throw LexerMismatchException(lastMatch, this.index)
+					this.index = lastIndex
 					lastIndex = -1
 					x = lastNode
-					index = dfa.transitionIndex(x, chars[i++])
+					index = dfa.transitionIndex(x, chars[this.index++])
 					currentDFA.transit(this, x, index)
 					dfa = currentDFA.dfa
-					lastMatch = i
+					lastMatch = this.index
 					x = dfa.beginCell
-					if (i == chars.length) break
+					if (this.index == chars.length) break
 					continue
 				}
 				val target = dfa.getOut(x, index)
 				if (dfa.isFinal(target)) {
-					lastIndex = i
+					lastIndex = this.index
 					lastNode = x
 				}
 				x = target
-				++i
+				++this.index
 			}
 		}
 	}

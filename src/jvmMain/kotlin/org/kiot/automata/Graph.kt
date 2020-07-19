@@ -17,7 +17,7 @@ fun StaticNFA.buildGraph() = kot {
 	}
 }
 
-fun GeneralDFA.buildGraph() = kot {
+fun GeneralDFA.buildGraph(expand: Boolean = false) = kot {
 	digraph {
 		for (i in indices) {
 			val cur = node(i.toString())
@@ -26,7 +26,7 @@ fun GeneralDFA.buildGraph() = kot {
 			val ranges = charRangesOf(i)
 			val outs = outsOf(i)
 			for (j in ranges.indices) {
-				link(cur, node(outs[j].toString())).label = ranges[j].expand()
+				link(cur, node(outs[j].toString())).label = ranges[j].let { if (expand) it.expand() else it.toString() }
 			}
 		}
 	}

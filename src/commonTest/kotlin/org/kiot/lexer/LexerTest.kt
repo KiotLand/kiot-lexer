@@ -62,7 +62,7 @@ class LexerTest {
 	fun testString() {
 		val list = mutableListOf<String>()
 		val lexer = Lexer.simple {
-			NFA.from(' ') then null
+			NFA.from(' ') then ignore
 			NFA.from(CharClass.letter).oneOrMore() then { list.add(string()) }
 		}
 		lexer.lex("one two three")
@@ -141,7 +141,7 @@ class LexerTest {
 			options.minimize = true
 			state(default) {
 				"[^\" ]+" then { data.identifiers += string() }
-				" " then null
+				" " then ignore
 				"\"" then { switchState(1) }
 			}
 			state(1) {

@@ -177,9 +177,9 @@ class GeneralDFA internal constructor(
 		while (true) {
 			val next = mutableListOf<IntList>()
 			for (list in current) {
-				val map = mutableMapOf<TransitionSet, IntList>()
+				val map = mutableMapOf<Pair<TransitionSet, List<T?>?>, IntList>()
 				for (cell in list)
-					map.getOrPut(transitionSet(cell)) { intListOf() } += cell
+					map.getOrPut(Pair(transitionSet(cell), marks?.get(cell))) { intListOf() } += cell
 				for (pair in map) next += pair.value
 			}
 			if (current.size == next.size) break
@@ -209,7 +209,7 @@ class GeneralDFA internal constructor(
 			val myRanges = mutableListOf<PlainCharRange>()
 			val myOuts = intListOf()
 			if (marks != null) {
-				val myMarks = arrayOfNulls<Mark>(current[i].first())
+				val myMarks = arrayOfNulls<Mark>(charRanges[current[i].first()].size)
 				for (j in current[i].indices) {
 					val cell = current[i][j]
 					val tmp = marks[cell]
@@ -217,16 +217,13 @@ class GeneralDFA internal constructor(
 					for (k in tmp.indices) myMarks[k] = mergeMark(myMarks[k], tmp[k])
 				}
 				@Suppress("UNCHECKED_CAST")
-				newMarks!!.add(myMarks as List<T?>)
+				newMarks!!.add(myMarks.asList() as List<T?>)
 			}
 			current[i].first().let {
 				val ranges = charRanges[it]
 				val tmp = outs[it]
 				myRanges.addAll(ranges)
-				for (j in ranges.indices) {
-					myRanges += ranges[j]
-					myOuts += group[tmp[j]]
-				}
+				for (j in ranges.indices) myOuts += group[tmp[j]]
 			}
 			newCharRanges += myRanges
 			newOuts += myOuts

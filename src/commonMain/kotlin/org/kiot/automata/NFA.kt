@@ -35,7 +35,7 @@ class NFA(val nfa: StaticNFA = StaticNFA(), var endCell: Int = 0) {
 			return NFA().append(chars)
 		}
 
-		fun fromRegExp(regexp: String) = NFA().appendRegExp(regexp)
+		fun fromRegExp(regexp: String) = regexp.regexp()
 	}
 
 	var beginCell: Int

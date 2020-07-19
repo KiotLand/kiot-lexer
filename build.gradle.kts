@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "org.kiot"
-version = "1.0.5.6"
+version = "1.0.5.7"
 
 repositories {
 	mavenCentral()

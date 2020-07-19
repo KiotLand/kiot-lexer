@@ -1,7 +1,7 @@
 <h1 align="center">kiot-lexer</h1>
 <h4 align="center">A state-based grateful lexer written in Kotlin. </h4>
 <p>
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.5.6-blue.svg?cacheSeconds=2592000" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.5.7-blue.svg?cacheSeconds=2592000" />
   <a href="./LICENSE.md" target="_blank">
     <img alt="License: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-yellow.svg" />
   </a>
@@ -34,7 +34,7 @@ allprojects {
 }
 
 dependencies {
-	implementation 'com.github.KiotLand.kiot-lexer:kiot-lexer:1.0.5.6'
+	implementation 'com.github.KiotLand.kiot-lexer:kiot-lexer:1.0.5.7'
 	// kiot-lexer-js and kiot-lexer-jvm are also alternatives.
 }
 ```
@@ -133,14 +133,13 @@ Have a look at the following example:
 import org.kiot.lexer.Lexer
 
 val lexer = Lexer.simple {
-	// `withName` gives this rule a name so we can debug more clearly
-	"\\d" then { println("a digit") } withName "digit"
-	"." then { println("a char") } withName "any"
+	"\\d" then { println("a digit") }
+	"." then { println("a char") }
 }
 
 /*
 	org.kiot.automata.MarksConflictException:
-		FunctionMark(digit) conflicts with FunctionMark(any) under this pattern: [0..9]
+		FunctionMark(\d) conflicts with FunctionMark(.) under this pattern: [0..9]
 */
 ```
 
