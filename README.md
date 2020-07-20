@@ -178,7 +178,7 @@ sentence.match("We can deal with numbers like 1926") // true
 sentence.match("not capitalized") // false
 ```
 
-Note that we use `RegExp` to mark the begin of a regexp sequence, then we call `build` on this sequence to get its parsing result. In the example above, `capitalizedWord`, `word` and `number` are NFAs instead of strings, so the process of repeatedly parsing some regexp is reduced.
+Note that we use `RegExp` to mark the beginning of a regexp sequence, then we call `build` on this sequence to get its parsing result. In the example above, `capitalizedWord`, `word` and `number` are NFAs instead of strings, so the process of repeatedly parsing some regexp is reduced.
 
 ## Notice
 
