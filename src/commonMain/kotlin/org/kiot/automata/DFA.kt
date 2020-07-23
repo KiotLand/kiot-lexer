@@ -316,8 +316,7 @@ class GeneralDFA internal constructor(
 			for (cell in indices) {
 				transitionBegin[cell] = tot
 				val outs = outsOf(cell)
-				for (i in outs.indices) transitions[tot + i] = outs[i]
-				tot += outs.size
+				for (i in outs.indices) transitions[tot++] = outs[i]
 			}
 		}
 		return CompressedDFA(
@@ -380,6 +379,9 @@ class CompressedDFA(
 						value.finalFlags.binarySize
 		}.also { Binary.register(it) }
 	}
+
+	val transitionSize: Int
+		get() = transitions.size
 
 	private fun charClassIndex(char: Char) =
 		char.toInt().let { charClassTable[(topLevelCharClassTable[it ushr 8].toInt() shl 8) or (it and 0xFF)] }

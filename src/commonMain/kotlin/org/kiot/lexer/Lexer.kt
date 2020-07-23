@@ -1,10 +1,12 @@
 package org.kiot.lexer
 
+import org.kiot.automata.FunctionMark
 import org.kiot.automata.GeneralDFA
 import org.kiot.automata.Mark
 import org.kiot.automata.MarkedDFA
 import org.kiot.automata.MarkedGeneralDFA
 import org.kiot.automata.NFA
+import org.kiot.automata.PriorityMark
 
 interface LexerState {
 	val ordinal: Int
@@ -17,61 +19,37 @@ class LexerMismatchException(val startIndex: Int, val endIndex: Int) : RuntimeEx
 		get() = "Mismatch in [$startIndex, $endIndex]"
 }
 
-data class LexerOptions(var minimize: Boolean = false, var strict: Boolean = true)
+data class LexerOptions(
+	var minimize: Boolean = false,
+	var strict: Boolean = true,
+	var compress: Boolean = true
+)
 
 class MarkedDFABuilder<T>(val options: LexerOptions = LexerOptions()) {
-	class NamedFunctionMark<T>(val function: Lexer.Session<T>.() -> Unit, var name: String = function.toString()) :
-		Mark {
-		override fun merge(other: Mark): Mark = this
+	private val pairs = mutableListOf<Pair<NFA, FunctionMark<T>?>>()
 
-		override fun canMerge(other: Mark): Boolean {
-			if (other !is NamedFunctionMark<*>) return false
-			return function == other.function && name == other.name
-		}
-
-		override fun toString(): String = "FunctionMark($name)"
-
-		infix fun withName(name: String) {
-			this.name = name
-		}
-	}
-
-	class PriorityMark<T : Mark>(val priority: Int, val mark: T) : Mark {
-		override fun merge(other: Mark): Mark {
-			other as PriorityMark<*>
-			return if (priority < other.priority) this
-			else other
-		}
-
-		override fun canMerge(other: Mark): Boolean = other is PriorityMark<*>
-
-		override fun toString(): String = "PriorityMark($priority, $mark)"
-	}
-
-	private val pairs = mutableListOf<Pair<NFA, NamedFunctionMark<T>?>>()
-
-	inline val ignore: NamedFunctionMark<T>?
+	inline val ignore: FunctionMark<T>?
 		get() = null
 
 	infix fun NFA.then(listener: Lexer.Session<T>.() -> Unit) {
-		pairs.add(Pair(this, NamedFunctionMark(listener)))
+		pairs.add(Pair(this, FunctionMark(listener)))
 	}
 
-	infix fun NFA.then(mark: NamedFunctionMark<T>?) {
+	infix fun NFA.then(mark: FunctionMark<T>?) {
 		pairs.add(Pair(this, mark))
 	}
 
 	// RegExp
-	infix fun String.then(listener: Lexer.Session<T>.() -> Unit): NamedFunctionMark<T> =
-		NamedFunctionMark(listener).also { pairs.add(Pair(NFA.fromRegExp(this), it)) }.also { it withName this }
+	infix fun String.then(listener: Lexer.Session<T>.() -> Unit): FunctionMark<T> =
+		FunctionMark(listener).also { pairs.add(Pair(NFA.fromRegExp(this), it)) }.also { it withName this }
 
-	infix fun String.then(mark: NamedFunctionMark<T>?) {
+	infix fun String.then(mark: FunctionMark<T>?) {
 		pairs.add(Pair(NFA.fromRegExp(this), mark?.also { it withName this }))
 	}
 
 	@Suppress("UNCHECKED_CAST")
-	fun build(): MarkedDFA<GeneralDFA, T> {
-		require(pairs.isNotEmpty()) { "DFA used for lexer can not be empty" }
+	fun build(): MarkedDFA<*, T> {
+		require(pairs.isNotEmpty()) { "DFA used by lexer can not be empty" }
 		val builder = NFA()
 		val nfa = builder.nfa
 		val newBegin = nfa.appendDummyCell()
@@ -97,10 +75,13 @@ class MarkedDFABuilder<T>(val options: LexerOptions = LexerOptions()) {
 		}
 		newMarks!!
 		require(!dfa.isFinal(dfa.beginCell)) { "The DFA built from NFA can match empty string, which is not permitted." }
-		return if (strict) MarkedGeneralDFA(dfa, newMarks as List<List<NamedFunctionMark<T>?>>)
-		else MarkedGeneralDFA(
-			dfa,
-			newMarks.map { it.map { each -> (each as PriorityMark<NamedFunctionMark<T>>).mark } })
+		val generalDFA =
+			if (strict) MarkedGeneralDFA(dfa, newMarks as List<List<FunctionMark<T>?>>)
+			else MarkedGeneralDFA(
+				dfa,
+				newMarks.map { it.map { each -> (each as PriorityMark<FunctionMark<T>>).mark } })
+		if (options.compress) return generalDFA.compressed()
+		return generalDFA
 	}
 }
 
