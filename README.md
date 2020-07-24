@@ -11,7 +11,7 @@
 
 ## What is kiot-lexer?
 
-A state-based lexer written in pure Kotlin.
+A state-based lexer generator written in pure Kotlin.
 
 ## Why kiot-lexer?
 
