@@ -336,7 +336,7 @@ class CompressedDFA(
 	private val charClassTable: ShortArray,
 	private val topLevelCharClassTable: ByteArray,
 
-	// transitionIndex(cell, char) = transitionIndex[transitionIndexBegin[cell]+charClassIndex(char)]
+	// transitionIndex(cell, char) = transitionIndices[transitionIndexBegin[cell]+charClassIndex(char)]
 	private val transitionIndices: IntArray,
 	private val transitionIndexBegin: IntArray,
 

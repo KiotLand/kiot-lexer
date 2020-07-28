@@ -301,8 +301,8 @@ class StaticNFA(
 	/**
 	 * Convert a NFA into DFA using Subset Construction.
 	 */
-	fun <T : Mark> toDFA(marks: List<T?>?): Pair<GeneralDFA, List<List<T?>>?> {
-		require(marks == null || marks.size == size)
+	fun <T : Mark> toDFA(actions: List<T?>?): Pair<GeneralDFA, List<List<T?>>?> {
+		require(actions == null || actions.size == size)
 
 		val charRanges = mutableListOf<MutableList<PlainCharRange>>()
 		val outs = mutableListOf<MutableList<Int>>()
@@ -312,8 +312,8 @@ class StaticNFA(
 		// TODO maybe use mutableMapOf(LinkedHashMap) here?
 		val cellMap = hashMapOf<CellList, Int>()
 		val sets = mutableListOf<CellList.TransitionSet<T>>()
-		val transitionMarks = if (marks == null) null else mutableListOf<MutableList<T?>>()
-		val transitionPath = if (marks == null) null else mutableListOf<Pair<PlainCharRange, Int>?>()
+		val transitionMarks = if (actions == null) null else mutableListOf<MutableList<T?>>()
+		val transitionPath = if (actions == null) null else mutableListOf<Pair<PlainCharRange, Int>?>()
 		fun indexOf(list: CellList, data: Pair<PlainCharRange, Int>?): Int =
 			cellMap[list] ?: run {
 				val index = charRanges.size
@@ -321,7 +321,7 @@ class StaticNFA(
 				queue.push(index)
 				transitionMarks?.add(mutableListOf())
 				transitionPath?.add(data)
-				sets.add(if (marks == null) list.transitionSet() else list.transitionSet(marks))
+				sets.add(if (actions == null) list.transitionSet() else list.transitionSet(actions))
 				charRanges.add(mutableListOf())
 				outs.add(mutableListOf())
 				finalFlags += list.hasFinal

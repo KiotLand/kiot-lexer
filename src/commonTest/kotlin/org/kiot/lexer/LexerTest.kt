@@ -3,159 +3,119 @@ package org.kiot.lexer
 import org.kiot.automata.CharClass
 import org.kiot.automata.MarksConflictException
 import org.kiot.automata.NFA
-import org.kiot.util.intListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class LexerTest {
-	@Test
-	fun test() {
-		val list = intListOf()
-		Lexer.simple {
-			NFA.from(CharClass.letter) then { list.add(1) }
-			NFA.from(CharClass.digit) then { list.add(2) }
-			NFA.from(' ') then { list.add(3) }
-		}.lex(" a1ba")
-		assertEquals(
-			intListOf(3, 1, 2, 1, 1),
-			list
-		)
+	open class IntLexer(data: LexerData, chars: CharSequence) : Lexer<Int>(data, chars) {
+		override fun onAction(action: Int) {
+			returnValue(action)
+		}
+	}
+
+	open class StringLexer(data: LexerData, chars: CharSequence) : Lexer<String>(data, chars) {
+		override fun onAction(action: Int) {
+			returnValue(string())
+		}
 	}
 
 	@Test
-	fun test2() {
-		val list = intListOf()
-		val lexer = Lexer.simple {
-			NFA.from(' ') then { list.add(1) }
-			NFA.from(CharClass.digit).oneOrMore() then { list.add(2) }
-			NFA.from(CharClass.letter).oneOrMore() then { list.add(3) }
+	fun test() {
+		val data = LexerData.buildSimple {
+			NFA.from(CharClass.letter) then 1
+			NFA.from(CharClass.digit) then 2
+			NFA.from(' ') then 3
 		}
-		run {
-			list.clear()
-			lexer.lex("he is 16 years old")
-			assertEquals(
-				intListOf(3, 1, 3, 1, 2, 1, 3, 1, 3),
-				list
-			)
-		}
-		run {
-			list.clear()
-			lexer.lex("Ametus is cute 233 ")
-			assertEquals(
-				intListOf(3, 1, 3, 1, 3, 1, 2, 1),
-				list
-			)
-		}
-		run {
-			list.clear()
-			try {
-				lexer.lex("illegal!")
-			} catch (e: LexerMismatchException) {
-				assertEquals(7, e.startIndex)
-				assertEquals(7, e.endIndex)
-			}
+
+		class TestLexer(chars: CharSequence) : IntLexer(data, chars)
+		assertEquals(listOf(3, 1, 2, 1, 1), TestLexer(" a1ba").lexAll())
+		assertEquals(listOf(1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2), TestLexer("Daniel13265").lexAll())
+		try {
+			TestLexer("!").lex()
+		} catch (e: LexerMismatchException) {
+			assertEquals(0, e.startIndex)
+			assertEquals(0, e.endIndex)
 		}
 	}
 
 	@Test
 	fun testString() {
-		val list = mutableListOf<String>()
-		val lexer = Lexer.simple {
+		val data = LexerData.buildSimple {
 			NFA.from(' ') then ignore
-			NFA.from(CharClass.letter).oneOrMore() then { list.add(string()) }
+			NFA.from(CharClass.letter).oneOrMore() then 1
 		}
-		lexer.lex("one two three")
+
 		assertEquals(
 			mutableListOf("one", "two", "three"),
-			list
+			StringLexer(data, "one two three").lexAll()
 		)
 	}
 
 	@Test
 	fun testConflict() {
 		assertFailsWith<MarksConflictException> {
-			Lexer.simple {
-				NFA.from(CharClass.digit) then {}
-				NFA.from(CharClass.any) then {}
+			LexerData.buildSimple {
+				NFA.from(CharClass.digit) then 1
+				NFA.from(CharClass.any) then 2
 			}
 		}
 		assertFailsWith<MarksConflictException> {
-			Lexer.simple {
-				NFA.from("hello") then {}
-				NFA.from(CharClass.letter).oneOrMore() then {}
+			LexerData.buildSimple {
+				NFA.from("hello") then 1
+				NFA.from(CharClass.letter).oneOrMore() then 2
 			}
 		}
 	}
 
 	@Test
 	fun testNonConflict() {
-		var type: Int
-		Lexer.simple {
+		val data = LexerData.buildSimple {
 			options.strict = false
-			NFA.from(CharClass.digit) then { type = 1 }
-			NFA.from(CharClass.any) then { type = 2 }
-		}.apply {
-			type = 0
-			lex("1")
-			assertEquals(type, 1)
-
-			type = 0
-			lex("a")
-			assertEquals(type, 2)
+			NFA.from(CharClass.digit) then 1
+			NFA.from(CharClass.any) then 2
 		}
+		assertEquals(1, IntLexer(data, "1").lex())
+		assertEquals(2, IntLexer(data, "a").lex())
 	}
 
 	@Test
 	fun testNormal() {
 		data class Word(var name: String, var definition: String)
 
-		val lexer = Lexer.buildWithData({ Word("", "") }) {
+		val data = LexerData.build {
 			options.minimize = true
 			state(default) {
-				NFA.from(": ") then { switchState(1) }
-				NFA.from(CharClass.letter).oneOrMore() then { data.name = string() }
+				NFA.from(": ") then 1
+				NFA.from(CharClass.letter).oneOrMore() then 2
 			}
 			state(1) {
-				NFA.from(CharClass.any).oneOrMore() then { data.definition = string() }
+				NFA.from(CharClass.any).oneOrMore() then 3
 			}
 		}
+
+		class NormalLexer(chars: CharSequence) : Lexer<Word>(data, chars) {
+			val word = Word("", "")
+
+			override fun onAction(action: Int) {
+				when (action) {
+					1 -> switchState(1)
+					2 -> word.name = string()
+					3 -> {
+						word.definition = string()
+						returnValue(word)
+					}
+				}
+			}
+		}
+
 		assertEquals(
-			lexer.lex("apple: a kind of fruit"),
+			NormalLexer("apple: a kind of fruit").lex(),
 			Word("apple", "a kind of fruit")
 		)
 		assertEquals(
-			lexer.lex("shocking: !!!"),
+			NormalLexer("shocking: !!!").lex(),
 			Word("shocking", "!!!")
-		)
-	}
-
-	@Test
-	fun testRegExp() {
-		data class Data(
-			val identifiers: MutableList<String> = mutableListOf(),
-			val strings: MutableList<String> = mutableListOf()
-		)
-
-		val lexer = Lexer.buildWithData({ Data() }) {
-			options.minimize = true
-			state(default) {
-				"[^\" ]+" then { data.identifiers += string() }
-				" " then ignore
-				"\"" then { switchState(1) }
-			}
-			state(1) {
-				"[^\"]+" then { data.strings += string() }
-				"\"" then { switchState(default) }
-			}
-		}
-		assertEquals(
-			lexer.lex("hello \"world\""),
-			Data(mutableListOf("hello"), mutableListOf("world"))
-		)
-		assertEquals(
-			lexer.lex("first \"apple\" second \"peach\""),
-			Data(mutableListOf("first", "second"), mutableListOf("apple", "peach"))
 		)
 	}
 }
