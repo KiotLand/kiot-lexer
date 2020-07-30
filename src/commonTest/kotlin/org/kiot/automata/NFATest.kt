@@ -216,6 +216,12 @@ internal class NFATest {
 			assertFalse(match("do"))
 			assertFalse(match("a"))
 		}
+		StaticNFA.fromRegExp("\\w{2}").apply {
+			assertTrue(match("do"))
+			assertTrue(match("as"))
+			assertFalse(match("dss"))
+			assertFalse(match("a"))
+		}
 		StaticNFA.fromRegExp("[0369]*(([147][0369]*|[258][0369]*[258][0369]*)([147][0369]*[258][0369]*)*([258][0369]*|[147][0369]*[147][0369]*)|[258][0369]*[147][0369]*)*")
 			.apply {
 				repeat(200) {

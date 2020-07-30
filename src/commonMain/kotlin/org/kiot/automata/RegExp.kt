@@ -233,13 +233,21 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 					'{' -> {
 						val atLeast = readInt() ?: error("Expected integer")
 						check()
-						expect(takeChar(), ',')
-						check()
-						val atMost = readInt()
-						expect(takeChar(), '}')
-						if (atMost == null) last!!.repeatAtLeast(atLeast)
-						else last!!.repeat(atLeast, atMost)
-						commit()
+						when (val char = takeChar()) {
+							',' -> {
+								check()
+								val atMost = readInt()
+								expect(takeChar(), '}')
+								if (atMost == null) last!!.repeatAtLeast(atLeast)
+								else last!!.repeat(atLeast, atMost)
+								commit()
+							}
+							'}' -> {
+								last!!.repeat(atLeast, atLeast)
+								commit()
+							}
+							else -> unexpected(char)
+						}
 					}
 					else -> {
 						unget(it)

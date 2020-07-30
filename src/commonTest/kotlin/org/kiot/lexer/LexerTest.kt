@@ -23,9 +23,9 @@ class LexerTest {
 	@Test
 	fun test() {
 		val data = LexerData.buildSimple {
-			NFA.from(CharClass.letter) then 1
-			NFA.from(CharClass.digit) then 2
-			NFA.from(' ') then 3
+			NFA.from(CharClass.letter) action 1
+			NFA.from(CharClass.digit) action 2
+			NFA.from(' ') action 3
 		}
 
 		class TestLexer(chars: CharSequence) : IntLexer(data, chars)
@@ -42,8 +42,8 @@ class LexerTest {
 	@Test
 	fun testString() {
 		val data = LexerData.buildSimple {
-			NFA.from(' ') then ignore
-			NFA.from(CharClass.letter).oneOrMore() then 1
+			NFA.from(' ').ignore()
+			NFA.from(CharClass.letter).oneOrMore() action 1
 		}
 
 		assertEquals(
@@ -56,14 +56,14 @@ class LexerTest {
 	fun testConflict() {
 		assertFailsWith<MarksConflictException> {
 			LexerData.buildSimple {
-				NFA.from(CharClass.digit) then 1
-				NFA.from(CharClass.any) then 2
+				NFA.from(CharClass.digit) action 1
+				NFA.from(CharClass.any) action 2
 			}
 		}
 		assertFailsWith<MarksConflictException> {
 			LexerData.buildSimple {
-				NFA.from("hello") then 1
-				NFA.from(CharClass.letter).oneOrMore() then 2
+				NFA.from("hello") action 1
+				NFA.from(CharClass.letter).oneOrMore() action 2
 			}
 		}
 	}
@@ -72,8 +72,8 @@ class LexerTest {
 	fun testNonConflict() {
 		val data = LexerData.buildSimple {
 			options.strict = false
-			NFA.from(CharClass.digit) then 1
-			NFA.from(CharClass.any) then 2
+			NFA.from(CharClass.digit) action 1
+			NFA.from(CharClass.any) action 2
 		}
 		assertEquals(1, IntLexer(data, "1").lex())
 		assertEquals(2, IntLexer(data, "a").lex())
@@ -86,11 +86,11 @@ class LexerTest {
 		val data = LexerData.build {
 			options.minimize = true
 			state(default) {
-				NFA.from(": ") then 1
-				NFA.from(CharClass.letter).oneOrMore() then 2
+				NFA.from(": ") action 1
+				NFA.from(CharClass.letter).oneOrMore() action 2
 			}
 			state(1) {
-				NFA.from(CharClass.any).oneOrMore() then 3
+				NFA.from(CharClass.any).oneOrMore() action 3
 			}
 		}
 

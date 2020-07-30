@@ -15,6 +15,10 @@ interface LexerState {
 	val ordinal: Int
 }
 
+interface LexerAction {
+	val ordinal: Int
+}
+
 class LexerMismatchException(val chars: CharSequence, val startIndex: Int, val endIndex: Int) : RuntimeException() {
 	override val message: String?
 		get() = "Mismatch in [$startIndex, $endIndex]: ${chars.substring(startIndex, endIndex + 1)}"
@@ -29,26 +33,27 @@ data class LexerOptions(
 class MarkedDFABuilder(val options: LexerOptions = LexerOptions()) {
 	internal val pairs = mutableListOf<Pair<NFA, ActionMark?>>()
 
-	inline val ignore: ActionMark?
-		get() = null
-
-	infix fun NFA.then(action: Int): ActionMark =
-		ActionMark(action).also { pairs.add(Pair(this, it)) }
-
-	infix fun NFA.then(mark: ActionMark?) {
-		pairs.add(Pair(this, mark))
+	fun NFA.ignore() {
+		pairs.add(Pair(this, null))
 	}
 
+	infix fun NFA.action(action: Int): ActionMark =
+		ActionMark(action).also { pairs.add(Pair(this, it)) }
+
+	infix fun NFA.action(action: LexerAction): ActionMark = this action (action.ordinal + 1)
+
 	// RegExp
-	infix fun String.then(action: Int): ActionMark =
+	fun String.ignore() {
+		pairs.add(Pair(NFA.fromRegExp(this), null))
+	}
+
+	infix fun String.action(action: Int): ActionMark =
 		ActionMark(action).also {
 			pairs.add(Pair(NFA.fromRegExp(this), it))
 			it withName this
 		}
 
-	infix fun String.then(mark: ActionMark?) {
-		pairs.add(Pair(NFA.fromRegExp(this), mark?.also { it withName this }))
-	}
+	infix fun String.action(action: LexerAction) = this action (action.ordinal + 1)
 
 	@Suppress("UNCHECKED_CAST")
 	fun build(): MarkedDFA<*> {
@@ -139,7 +144,7 @@ class LexerData(internal val dfaList: List<MarkedDFA<*>?>) : Binarizable {
 	}
 }
 
-abstract class Lexer<R>(data: LexerData, val chars: CharSequence) {
+abstract class Lexer<R>(data: LexerData, protected val chars: CharSequence) {
 	private val dfaList = data.dfaList
 
 	init {
@@ -149,7 +154,7 @@ abstract class Lexer<R>(data: LexerData, val chars: CharSequence) {
 
 	abstract fun onAction(action: Int)
 
-	private var lastMatch = 0
+	protected var lastMatch = 0
 	private var currentDFA = dfaList[0]!!
 	protected var index = 0
 		private set
@@ -159,10 +164,7 @@ abstract class Lexer<R>(data: LexerData, val chars: CharSequence) {
 
 	protected fun switchState(state: LexerState) = switchState(state.ordinal + 1)
 	protected fun switchState(stateIndex: Int) {
-		dfaList[stateIndex]!!.let {
-			if (it == currentDFA) return
-			currentDFA = it
-		}
+		currentDFA = dfaList[stateIndex]!!
 	}
 
 	protected fun returnValue(result: R) {

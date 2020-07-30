@@ -290,6 +290,7 @@ class StaticNFA(
 			override fun MutablePair<CellList, T?>.merge(other: MutablePair<CellList, T?>) {
 				second = mergeMark(second, other.second)
 				first.addAll(other.first.list)
+				first.finalCount += other.first.finalCount
 			}
 		}
 
