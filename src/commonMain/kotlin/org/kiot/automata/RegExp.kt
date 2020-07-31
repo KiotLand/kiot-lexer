@@ -160,6 +160,10 @@ internal class RegExpParser(private val elements: List<Any> /* could be String o
 						check()
 						readChars.removeAt(readChars.lastIndex)
 						val endChar = readChar()
+						if (endChar == ']') {
+							readChars += ']'
+							break@loop
+						}
 						if (lastChar > endChar) error("Illegal char range: ${lastChar.description()} to ${endChar.description()}")
 						readRanges += lastChar plainTo endChar
 					}

@@ -171,7 +171,7 @@ abstract class Lexer<R>(data: LexerData, protected val chars: CharSequence) {
 		this.result = result
 	}
 
-	fun lex(): R? {
+	open fun lex(): R? {
 		if (index == chars.length) return null
 		var dfa = currentDFA.dfa
 		var x = dfa.beginCell
