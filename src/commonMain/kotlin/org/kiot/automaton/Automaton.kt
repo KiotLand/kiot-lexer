@@ -1,4 +1,4 @@
-package org.kiot.automata
+package org.kiot.automaton
 
 /**
  * General automata class.
@@ -8,13 +8,13 @@ package org.kiot.automata
  *
  * @author Mivik
  */
-abstract class Automata {
+abstract class Automaton {
 	/**
 	 * The amount of cells in this automata.
 	 */
 	abstract val size: Int
 
-	abstract fun copy(): Automata
+	abstract fun copy(): Automaton
 
 	abstract val beginCell: Int
 

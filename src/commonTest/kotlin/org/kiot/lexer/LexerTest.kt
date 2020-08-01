@@ -1,8 +1,8 @@
 package org.kiot.lexer
 
-import org.kiot.automata.CharClass
-import org.kiot.automata.MarksConflictException
-import org.kiot.automata.NFA
+import org.kiot.automaton.CharClass
+import org.kiot.automaton.MarksConflictException
+import org.kiot.automaton.NFA
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

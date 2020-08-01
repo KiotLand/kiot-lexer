@@ -1,11 +1,11 @@
 package org.kiot.lexer
 
-import org.kiot.automata.ActionMark
-import org.kiot.automata.Mark
-import org.kiot.automata.MarkedDFA
-import org.kiot.automata.MarkedGeneralDFA
-import org.kiot.automata.NFA
-import org.kiot.automata.PriorityMark
+import org.kiot.automaton.ActionMark
+import org.kiot.automaton.Mark
+import org.kiot.automaton.MarkedDFA
+import org.kiot.automaton.MarkedGeneralDFA
+import org.kiot.automaton.NFA
+import org.kiot.automaton.PriorityMark
 import org.kiot.util.Binarizable
 import org.kiot.util.Binarizer
 import org.kiot.util.Binary

@@ -1,4 +1,4 @@
-package org.kiot.automata
+package org.kiot.automaton
 
 import org.kiot.util.Binarizable
 import org.kiot.util.Binarizer
@@ -51,7 +51,7 @@ sealed class DFA(protected val finalFlags: BitSet) : Binarizable {
  * build an DFA manually XD). Obtain a DFA from NFA.
  *
  * @see StaticNFA
- * @see Automata
+ * @see Automaton
  *
  * @author Mivik
  */
@@ -128,7 +128,7 @@ class GeneralDFA internal constructor(
 
 	override fun getOut(cellIndex: Int, transitionIndex: Int): Int = outs[cellIndex][transitionIndex]
 
-	internal class TransitionSet : org.kiot.automata.TransitionSet<IntList>() {
+	internal class TransitionSet : org.kiot.automaton.TransitionSet<IntList>() {
 		override fun copy(element: IntList): IntList = element.copy()
 
 		override fun IntList.merge(other: IntList) {
@@ -255,7 +255,7 @@ class GeneralDFA internal constructor(
 	}
 
 	fun compressed(): CompressedDFA {
-		val set = object : org.kiot.automata.TransitionSet<Unit>() {
+		val set = object : org.kiot.automaton.TransitionSet<Unit>() {
 			override fun copy(element: Unit) {}
 
 			override fun Unit.merge(other: Unit) {}

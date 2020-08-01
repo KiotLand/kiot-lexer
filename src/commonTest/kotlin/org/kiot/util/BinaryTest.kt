@@ -1,10 +1,10 @@
 package org.kiot.util
 
-import org.kiot.automata.CharClass
-import org.kiot.automata.CompressedDFA
-import org.kiot.automata.GeneralDFA
-import org.kiot.automata.StaticNFA
-import org.kiot.automata.NFATest
+import org.kiot.automaton.CharClass
+import org.kiot.automaton.CompressedDFA
+import org.kiot.automaton.GeneralDFA
+import org.kiot.automaton.StaticNFA
+import org.kiot.automaton.NFATest
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals

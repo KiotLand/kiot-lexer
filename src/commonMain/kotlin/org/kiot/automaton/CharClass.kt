@@ -1,4 +1,4 @@
-package org.kiot.automata
+package org.kiot.automaton
 
 import org.kiot.util.Binarizable
 import org.kiot.util.Binarizer

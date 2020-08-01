@@ -1,4 +1,4 @@
-package org.kiot.automata
+package org.kiot.automaton
 
 import org.kiot.util.BitSet
 import org.kiot.util.intListOf
@@ -118,7 +118,7 @@ class NFA(val nfa: StaticNFA = StaticNFA(), var endCell: Int = 0) {
 	 * accepts single char.
 	 */
 	fun append(vararg chars: Char) = append(CharClass.from(*chars))
-	fun appendSorted(vararg chars: Char) = append(CharClass.fromSorted(*chars))
+	fun appendSorted(vararg chars: Char) = append(CharClass.from(*chars))
 	fun appendSorted(chars: String) = append(CharClass.fromSorted(chars))
 	fun append(charClass: CharClass): NFA {
 		extendEnd(nfa.appendCell(charClass))

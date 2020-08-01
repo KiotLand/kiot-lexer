@@ -1,4 +1,4 @@
-package org.kiot.automata
+package org.kiot.automaton
 
 import org.kiot.util.Binarizable
 import org.kiot.util.Binarizer
@@ -20,7 +20,7 @@ import kotlin.native.concurrent.ThreadLocal
  * in NFA.
  *
  * @see DFA
- * @see Automata
+ * @see Automaton
  *
  * @author Mivik
  */
@@ -38,7 +38,7 @@ class StaticNFA(
 	 */
 	private val charClasses: MutableList<CharClass> = mutableListOf(),
 	private val outs: MutableList<IntList> = mutableListOf() // Mentioned above
-) : Automata(), Binarizable {
+) : Automaton(), Binarizable {
 	companion object {
 		fun from(vararg chars: Char) = NFA.from(*chars).static()
 		fun fromSorted(vararg chars: Char) = NFA.fromSorted(*chars).static()
@@ -283,7 +283,7 @@ class StaticNFA(
 		}
 
 		internal class TransitionSet<T : Mark> :
-			org.kiot.automata.TransitionSet<MutablePair<CellList, T?>>() {
+			org.kiot.automaton.TransitionSet<MutablePair<CellList, T?>>() {
 			override fun copy(element: MutablePair<CellList, T?>) =
 				MutablePair(element.first.copy(), element.second)
 
