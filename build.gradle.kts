@@ -37,7 +37,7 @@ kotlin {
 		val commonMain by getting {
 			dependencies {
 				implementation(kotlin("stdlib-common"))
-				api("com.github.KiotLand.kiot-binary:kiot-binary:1.0.3")
+				api("com.github.KiotLand.kiot-binary:kiot-binary:1.0.4")
 			}
 		}
 		val commonTest by getting {
@@ -49,8 +49,8 @@ kotlin {
 		val jsMain by getting {
 			dependencies {
 				implementation(kotlin("stdlib-js"))
-				api("com.github.KiotLand.kiot-binary:kiot-binary-js:1.0.3")
-				api(npm("text-encoding"))
+				api("com.github.KiotLand.kiot-binary:kiot-binary-js:1.0.4")
+				api(npm("text-encoding", "0.7.0"))
 			}
 		}
 		val jsTest by getting {
@@ -61,7 +61,7 @@ kotlin {
 		val jvmMain by getting {
 			dependencies {
 				implementation(kotlin("stdlib-jdk8"))
-				api("com.github.KiotLand.kiot-binary:kiot-binary-jvm:1.0.3")
+				api("com.github.KiotLand.kiot-binary:kiot-binary-jvm:1.0.4")
 				api("com.github.Mivik:Kot:1.0.4")
 			}
 		}
