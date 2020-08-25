@@ -1,12 +1,12 @@
 @file:Suppress("UNUSED_VARIABLE")
 
 plugins {
-	kotlin("multiplatform") version "1.3.72"
+	kotlin("multiplatform") version "1.4.0"
 	id("maven-publish")
 }
 
 group = "org.kiot"
-version = "1.0.6.1"
+version = "1.0.6.2"
 
 repositories {
 	mavenCentral()

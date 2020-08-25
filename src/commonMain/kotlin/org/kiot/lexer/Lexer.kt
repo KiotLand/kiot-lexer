@@ -156,7 +156,7 @@ abstract class Lexer<R>(data: LexerData, protected val chars: CharSequence) {
 
 	protected var lastMatch = 0
 	private var currentDFA = dfaList[0]!!
-	protected var index = 0
+	var index = 0
 		private set
 	private var result: R? = null
 
